@@ -2,27 +2,23 @@ import { Router } from "express";
 
 import { 
     cargaMaterial ,
-    verMateriales
-
+    verMateriales,
+    editarMaterial,
+    cargaProducto,
+    verProductos,
+    editarProducto
 } from "../controllers/MateProdu.controllers.js";
 
 const router = Router();
-
+// MATERIALS
 router.post("/api/cargamateriales", cargaMaterial);
-
 router.get("/api/verMateriales", verMateriales);
+router.put("/api/editarmaterial/:id",editarMaterial);
 
-//Consulta a Apu se va de los Simpson, para fracciones 
-router.get('/api/cargamateriales/fracciones', async (req, res) => {
-    try {
-        const { keyword } = req.query;  // Parámetro de búsqueda desde el frontend
-        const response = await axios.get(`https://apisandbox.facturama.mx/catalogs/TariffFractions?keyword=${keyword}`);
-
-        res.json(response.data);  // Enviar datos al frontend
-    } catch (error) {
-        res.status(500).json({ error: 'Error al obtener datos' });
-    }
-});
+//PRODUCTO
+router.post("/api/cargaproducto", cargaProducto);
+router.get("/api/verproductos", verProductos);
+router.put("/api/editarproducto/:id",editarProducto);
 
 export default router;
 

@@ -1,4 +1,4 @@
-import { pool } from "../db.js";
+import { pool } from '../db.js';
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
@@ -21,23 +21,22 @@ const verifyToken = (req, res, next) => {
     }
 };
 
-// GET todas las cuentas
-export const getCuentas = async (req, res) => {
+
+//GET Cuentas
+export const getCuentas = async (req,res)=>{
     const { rows } = await pool.query("SELECT * FROM cuenta_usuario");
     res.json(rows);
 };
-
-// GET cuenta específica
-export const getCuenta = async (req, res) => {
+//GET Cuenta especifica
+export const getCuenta = async (req,res)=>{
     const { id } = req.params;
     const { rows } = await pool.query("SELECT * FROM cuenta_usuario WHERE id_usuario = $1", [id]);
     
-    if (rows.length === 0) {
-        return res.status(404).json({ message: "Usuario no encontrado" });
+    if(rows.length === 0){
+        return res.status(404).json({ message: "User not found"});
     }
     res.json(rows[0]);
 };
-
 // POST Crear Cuenta
 export const crearCuenta = async (req, res) => {
     const data = req.body;
@@ -56,20 +55,18 @@ export const crearCuenta = async (req, res) => {
     );
     return res.status(201).json(rows[0]);
 };
-
-// DELETE borrar cuenta
-export const borrarCuenta = async (req, res) => {
+//DELATE borrar cuenta
+export const borrarCuenta = async (req,res)=>{
     const { id } = req.params;
     const { rowCount } = await pool.query(
         "DELETE FROM cuenta_usuario WHERE id_usuario = $1 RETURNING *",
         [id]
     );
-    if (rowCount === 0) {
-        return res.status(404).json({ message: "Usuario no encontrado" });
+    if(rowCount === 0){
+        return res.status(404).json({message: "Usuario no encontrado"});
     }
     return res.sendStatus(204);
 };
-
 // PUT actualizar cuenta
 export const putCuenta = async (req, res) => {
     const { id } = req.params;
@@ -88,6 +85,7 @@ export const putCuenta = async (req, res) => {
     );
     return res.json(rows[0]);
 };
+
 
 // POST Login y generación de token
 export const loginCuenta = async (req, res) => {
@@ -143,7 +141,7 @@ export const loginCuenta = async (req, res) => {
         console.log("Token generado:", token);
 
         // Enviar el token
-        res.status(200).json({ token });
+        res.status(200).json({ token }); //Depuracion
     } catch (error) {
         console.error("Error en la autenticación:", error);
         res.status(500).json({ message: "Error interno del servidor" });
