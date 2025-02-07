@@ -6,8 +6,8 @@ import {
     crearCuenta,
     borrarCuenta,
     putCuenta,
-    loginCuenta
-
+    loginCuenta,
+    verifyToken
 } from '../controllers/cuenta.controllers.js'
 
 const router = Router();
@@ -29,6 +29,5 @@ router.put("/cuenta/:id", putCuenta);
 
 //Login
 router.post("/login", loginCuenta);
-
 
 export default router;
