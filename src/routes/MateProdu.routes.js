@@ -6,7 +6,8 @@ import {
     editarMaterial,
     cargaProducto,
     verProductos,
-    editarProducto
+    editarProducto,
+    verBillete
 } from "../controllers/MateProdu.controllers.js";
 
 const router = Router();
@@ -19,6 +20,9 @@ router.put("/api/editarmaterial/:id",editarMaterial);
 router.post("/api/cargaproducto", cargaProducto);
 router.get("/api/verproductos", verProductos);
 router.put("/api/editarproducto/:id",editarProducto);
+
+//BILLETE DE MATERIALES 
+router.get("/api/billete/:id",verBillete);
 
 export default router;
 

@@ -39,3 +39,22 @@ export const entradaMercancia = async (req, res) => { // como odio JavaScript po
     }
         
 };
+
+export const activoFijo = async (req, res) => { //Ver Activo Fijo
+    const {id_empresa} = req.body;
+    try {
+        const { rows } = await pool.query(`
+            SELECT 
+                id_activo_fijo_interno, fraccion_arancelaria, nombre_activofijo, ubicacion_interna, descripcion
+            FROM 
+                activo_fijo 
+            WHERE 
+                id_empresa = $1
+            `,[id_empresa]);
+        res.json(rows);
+    } catch (error) {
+        console.error("Error al obtener datos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+        
+};

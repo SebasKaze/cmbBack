@@ -5,6 +5,7 @@ import cuentaRoutes from './routes/cuenta.routes.js';
 import pedimentos from './routes/pedimento.routes.js';
 import verPedimentos from './routes/verpedimento.routes.js';
 import MateProductos from './routes/MateProdu.routes.js';
+import Datos from './routes/Datos.routes.js'
 import morgan from 'morgan';
 import cors from "cors";
 
@@ -20,6 +21,7 @@ app.use(cuentaRoutes);  //Cuentas y login
 app.use(pedimentos);     //Informacion sobre pedimentos
 app.use(verPedimentos); //Pestaña de Pedimentos
 app.use(MateProductos); //Materiales
+app.use(Datos); // Ver datos Generales y domicilios
 
 // Cargar y leer el archivo XLSX
 let tigieData = [];

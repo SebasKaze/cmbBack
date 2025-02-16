@@ -2,9 +2,9 @@ import { pool } from '../db.js';
 
 //MATERIALES
 export const cargaMaterial = async (req,res)=>{
-    const data = req.body;
-    console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
-/*
+    //const data = req.body;
+    //console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
+
     try{
         const envioMaterial = req.body;
         const envioMaterialQuery = `
@@ -18,7 +18,7 @@ export const cargaMaterial = async (req,res)=>{
         const envioMaterialValues = [
             envioMaterial.idInterno,
             envioMaterial.fraccion,
-            2,
+            envioMaterial.id_empresa,
             envioMaterial.nombreFracc,
             envioMaterial.descripcionFraccion,
             envioMaterial.unidadMedida
@@ -32,7 +32,7 @@ export const cargaMaterial = async (req,res)=>{
             return res.status(500).json({ error: "Error interno del servidor" });
         }
     }
-        */
+        
 };
 export const verMateriales = async (req, res) =>{
     try {
@@ -64,41 +64,83 @@ export const editarMaterial = async (req,res) =>{
 //PRODUCTOS
 
 export const cargaProducto = async (req,res)=>{
-    //const data = req.body;
-    //console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
+    const data = req.body;
+    console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
 
     try{
         const envioProducto = req.body;
         const envioProductoQuery = `
             INSERT INTO productos_de_empresa
-            (id_material_interno, fraccion_arancelaria, id_empresa, nombre_interno, descripcion_fraccion,
+            (id_producto_interno, fraccion_arancelaria, id_empresa, nombre_interno, descripcion_fraccion,
             unidad_medida)
             VALUES 
             ($1, $2, $3, $4, $5, $6)
             RETURNING *;
-        `; 
+        `;
         const envioProductoValues = [
-            envioProducto.idInterno,
+            envioProducto.id,
             envioProducto.fraccion,
-            2,
-            envioProducto.nombreFracc,
-            envioProducto.descripcionFraccion,
+            envioProducto.id_empresa,
+            envioProducto.nombre,
+            envioProducto.descripcion,
             envioProducto.unidadMedida
         ];
-        /*
-            Agregar la parte de incluir el billete de materiales 
-            Se tomara de la tabla de materiales el id interno y el nombre desde el front
-            Sera una tabla con los materiales con casillas marcables para seleccionar
-        */
         const envioProductoPush = await pool.query(envioProductoQuery,envioProductoValues);
-        const data = "Datos Cargados";
-        res.json(data);
+
+        const id_producto = envioProductoPush.rows[0].id_producto; // ID generado del producto
+        let billetesInsertados = []; // Para almacenar los registros insertados
+
+
+         // 2. Insertar billetes por cada material en la lista
+        for (const material of envioProducto.materiales) {
+            // Obtener id_material desde la tabla materiales
+            const materialQuery = `
+                SELECT id_material FROM materiales_de_empresa WHERE id_material_interno = $1;
+            `;
+            const materialResult = await pool.query(materialQuery, [material.id_material_interno]);
+
+            if (materialResult.rowCount === 0) {
+                console.warn(`No se encontró material con id_material_interno: ${material.id_material_interno}`);
+                continue; // Saltar este material si no se encuentra
+            }
+
+            const id_material = materialResult.rows[0].id_material; // ID real del material
+
+            // Insertar en billete_de_materiales
+            const envioBilleteQuery = `
+                INSERT INTO billete_de_materiales
+                (id_material, id_producto, id_material_interno, id_producto_interno, cantidad)
+                VALUES 
+                ($1, $2, $3, $4, $5)
+                RETURNING *;
+            `;
+
+            const envioBilleteValues = [
+                id_material,          // id_material obtenido de la consulta
+                id_producto,          // id_producto del producto insertado
+                material.id_material_interno, // id_material_interno desde JSON
+                envioProducto.id,     // id_producto_interno desde JSON
+                material.cantidad     // cantidad del material
+            ];
+
+            const envioBilletePush = await pool.query(envioBilleteQuery, envioBilleteValues);
+            billetesInsertados.push(envioBilletePush.rows[0]);
+        }
+
+        res.json({
+            mensaje: "Datos Cargados",
+            producto: envioProductoPush.rows[0],
+            billetes: billetesInsertados
+        });
+
+
     }catch(error){
         console.error("Error al insertar datos:", error);
         if (!res.headersSent) {
             return res.status(500).json({ error: "Error interno del servidor" });
         }
     }
+
 };
 
 export const verProductos = async (req, res) =>{
@@ -133,4 +175,24 @@ export const editarProducto = async (req,res) =>{
         o agregar o quitar alguno
     */
     return res.json(rows[0]);
-}
+};
+
+//BIllete de materiales
+export const verBillete = async (req,res) =>{
+    const { id } = req.params;
+
+    try {
+        const { rows } = await pool.query(`
+            SELECT 
+                *
+            FROM 
+                billete_de_materiales
+            WHERE 
+                id_producto_interno = $1
+            `,[id]);
+        res.json(rows[0]);
+    } catch (error) {
+        console.error("Error al obtener datos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
