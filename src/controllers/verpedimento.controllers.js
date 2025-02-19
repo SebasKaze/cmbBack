@@ -3,21 +3,24 @@ import { pool } from '../db.js';
 export const verPedimento = async (req, res) => { // como odio JavaScript por cierto
     try {
         const { id_empresa, id_domicilio } = req.query;
-
-
+        console.log(id_domicilio);
+        console.log(id_empresa);
         const query = `
-            SELECT 
-                p.no_pedimento, 
-                p.tipo_oper,
-                TO_CHAR(e.fecha_en, 'YYYY-MM-DD') AS fecha_en
-            FROM 
-                pedimento p
-            JOIN encabezado_p_pedimento e ON p.no_pedimento = e.no_pedimento
-            WHERE p.id_empresa = $1 AND p.id_domicilio = $2;
+SELECT 
+    p.no_pedimento, 
+    p.tipo_oper,
+    TO_CHAR(e.fecha_en, 'YYYY-MM-DD') AS fecha_en
+FROM 
+    pedimento p
+JOIN 
+    encabezado_p_pedimento e ON p.no_pedimento = e.no_pedimento
+WHERE 
+    p.id_empresa = $1 
+    AND p.id_domicilio = $2;
         `;
         const values = [id_empresa, id_domicilio];
-
         const { rows } = await pool.query(query, values);
+
         res.json(rows);
     } catch (error) {
         console.error("Error al obtener datos:", error);
@@ -41,8 +44,9 @@ export const entradaMercancia = async (req, res) => { // como odio JavaScript po
                 TO_CHAR(e.fecha_en, 'YYYY-MM-DD') AS fecha_en
             FROM 
                 pedimento p
-            JOIN encabezado_p_pedimento e ON p.no_pedimento = e.no_pedimento
-            WHERE p.id_empresa = $1 AND p.id_domicilio = $2;
+            WHERE p.id_empresa = $1 AND p.id_domicilio = $2
+            JOIN encabezado_p_pedimento e ON p.no_pedimento = e.no_pedimento;
+            
         `;
         const values = [id_empresa, id_domicilio];
 

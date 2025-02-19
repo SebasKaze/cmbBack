@@ -10,12 +10,12 @@ export const envioPedimento = async (req, res) => {
         await client.query("BEGIN");
 
         // Desestructuración de datos recibidos
-        const { id_usuario, id_empresa, nombre_usuario, seccion1, seccion2, seccion3, seccion4, seccion5, seccion6, seccion7, contribuciones, CuadroLiquidacion, } = req.body;
+        const { id_usuario, id_empresa, nombre_usuario, id_domicilio, seccion1, seccion2, seccion3, seccion4, seccion5, seccion6, seccion7, contribuciones, CuadroLiquidacion, } = req.body;
 
         // **Insertar en pedimento (tabla principal)**
         const pedimentoQuery = `
-            INSERT INTO pedimento (no_pedimento, tipo_oper, clave_ped, id_empresa, id_user, nombre, fecha_hora)
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            INSERT INTO pedimento (no_pedimento, tipo_oper, clave_ped, id_empresa, id_user, nombre, fecha_hora,id_domicilio)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW(),$7)
             RETURNING no_pedimento;
         `;
         const pedimentoValues = [
@@ -24,7 +24,8 @@ export const envioPedimento = async (req, res) => {
             seccion1.clavePedi,
             id_empresa,
             id_usuario,
-            nombre_usuario
+            nombre_usuario,
+            id_domicilio
         ];
         // Se inserta el pedimento y se obtiene el no_pedimento insertado
         const { rows } = await client.query(pedimentoQuery, pedimentoValues);
