@@ -99,9 +99,11 @@ export const loginCuenta = async (req, res) => {
                 u.nombre AS nombre_usuario, 
                 u.id_empresa, 
                 e.nombre AS nombre_empresa, 
-                u.contraseña
-            FROM cuenta_usuario u
-            JOIN info_empresa e ON u.id_empresa = e.id_empresa
+                u.contraseña,
+                u.tipo_de_cuenta,
+                u.id_domicilio
+                FROM cuenta_usuario u
+                JOIN info_empresa e ON u.id_empresa = e.id_empresa
             WHERE u.corrreo = $1`,
             [email]
         );
@@ -133,6 +135,8 @@ export const loginCuenta = async (req, res) => {
                 nombre_usuario: user.nombre_usuario,
                 id_empresa: user.id_empresa,
                 nombre_empresa: user.nombre_empresa,
+                tipo_de_cuenta: user.tipo_de_cuenta,
+                id_domicilio: user.id_domicilio,
             },
             SECRET_KEY,
             { expiresIn: "2h" }
