@@ -2,17 +2,17 @@ import { pool } from '../db.js';
 
 //MATERIALES
 export const cargaMaterial = async (req,res)=>{
-    //const data = req.body;
-    //console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
+    const data = req.body;
+    console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
 
     try{
         const envioMaterial = req.body;
         const envioMaterialQuery = `
             INSERT INTO materiales_de_empresa
             (id_material_interno, fraccion_arancelaria, id_empresa, nombre_interno, descripcion_fraccion,
-            unidad_medida)
+            unidad_medida,id_domicilio)
             VALUES 
-            ($1, $2, $3, $4, $5, $6)
+            ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *;
         `; 
         const envioMaterialValues = [
@@ -21,7 +21,8 @@ export const cargaMaterial = async (req,res)=>{
             envioMaterial.id_empresa,
             envioMaterial.nombreFracc,
             envioMaterial.descripcionFraccion,
-            envioMaterial.unidadMedida
+            envioMaterial.unidadMedida,
+            envioMaterial.id_domicilio,
         ];
         const envioMaterialPush = await pool.query(envioMaterialQuery,envioMaterialValues);
         const data = "Datos Cargados";
@@ -35,18 +36,28 @@ export const cargaMaterial = async (req,res)=>{
         
 };
 export const verMateriales = async (req, res) =>{
+    const { id_empresa, id_domicilio} = req.query;
+    // Valida que se hayan enviado los parámetros
+    if (!id_empresa || !id_domicilio) {
+        return res.status(400).json({ message: "Faltan parámetros requeridos." });
+    }
     try {
         const { rows } = await pool.query(`
             SELECT 
                 id_material_interno, fraccion_arancelaria, nombre_interno, descripcion_fraccion, unidad_medida
             FROM 
                 materiales_de_empresa
-            `);
+            WHERE 
+                id_empresa = $1 
+                AND 
+                id_domicilio = $2
+            `,[id_empresa,id_domicilio]);
         res.json(rows);
     } catch (error) {
         console.error("Error al obtener datos:", error);
         res.status(500).json({ error: "Error interno del servidor" });
     }
+
 };
 export const editarMaterial = async (req,res) =>{
     const data = req.body;
@@ -72,9 +83,9 @@ export const cargaProducto = async (req,res)=>{
         const envioProductoQuery = `
             INSERT INTO productos_de_empresa
             (id_producto_interno, fraccion_arancelaria, id_empresa, nombre_interno, descripcion_fraccion,
-            unidad_medida)
+            unidad_medida, id_domicilio)
             VALUES 
-            ($1, $2, $3, $4, $5, $6)
+            ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *;
         `;
         const envioProductoValues = [
@@ -83,7 +94,8 @@ export const cargaProducto = async (req,res)=>{
             envioProducto.id_empresa,
             envioProducto.nombre,
             envioProducto.descripcion,
-            envioProducto.unidadMedida
+            envioProducto.unidadMedida,
+            envioProducto.id_domicilio,
         ];
         const envioProductoPush = await pool.query(envioProductoQuery,envioProductoValues);
 
@@ -140,17 +152,25 @@ export const cargaProducto = async (req,res)=>{
             return res.status(500).json({ error: "Error interno del servidor" });
         }
     }
-
+    
 };
 
 export const verProductos = async (req, res) =>{
+    const { id_empresa, id_domicilio} = req.query;
+    if (!id_empresa || !id_domicilio) {
+        return res.status(400).json({ message: "Faltan parámetros requeridos." });
+    }
     try {
         const { rows } = await pool.query(`
             SELECT 
                 id_producto_interno, fraccion_arancelaria, nombre_interno, descripcion_fraccion, unidad_medida
             FROM 
                 productos_de_empresa
-            `);
+            WHERE 
+                id_empresa = $1 
+                AND 
+                id_domicilio = $2
+            `,[id_empresa,id_domicilio]);
         res.json(rows);
     } catch (error) {
         console.error("Error al obtener datos:", error);
@@ -178,19 +198,20 @@ export const editarProducto = async (req,res) =>{
 };
 
 //BIllete de materiales
-export const verBillete = async (req,res) =>{
+export const verBillete = async (req, res) => {
     const { id } = req.params;
 
     try {
         const { rows } = await pool.query(`
             SELECT 
-                *
+                id_material_interno, cantidad
             FROM 
                 billete_de_materiales
             WHERE 
                 id_producto_interno = $1
-            `,[id]);
-        res.json(rows[0]);
+        `, [id]);
+
+        res.json(rows); // Enviar todos los registros en un array
     } catch (error) {
         console.error("Error al obtener datos:", error);
         res.status(500).json({ error: "Error interno del servidor" });
