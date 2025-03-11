@@ -56,5 +56,3 @@ app.get("/api/cargamateriales/fracciones", (req, res) => {
 
 app.listen(PORT);
 console.log('Puerto escuchando en', PORT);
-
-
