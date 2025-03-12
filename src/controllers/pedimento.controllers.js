@@ -1,4 +1,38 @@
 import { pool } from '../db.js';
+
+import multer from "multer";
+const storage = multer.memoryStorage(); // Almacena en memoria (puedes cambiarlo a disco)
+const upload = multer({ storage });
+
+
+export const verPedimentos = async (req, res) => {
+    const { id_empresa, id_domicilio } = req.query;
+
+    if (!id_empresa || !id_domicilio) {
+        return res.status(400).json({ message: "Faltan parámetros requeridos." });
+    }
+
+    try {
+        const { rows } = await pool.query(
+            `SELECT no_pedimento FROM pedimento WHERE id_empresa = $1 AND id_domicilio = $2`,
+            [id_empresa, id_domicilio]
+        );
+
+        res.json(rows);
+    } catch (error) {
+        console.error("Error al obtener datos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+
+export const subirArchivos = async (req, res) => {
+    console.log("Solicitud recibida en /subirarc");
+    console.log("Headers:", req.headers);
+    console.log("Datos recibidos Envio materiales:", JSON.stringify(req.body, null, 2));
+
+    res.json({ message: "Datos recibidos correctamente" });
+};
+
 export const envioPedimento = async (req, res) => {
     const data = req.body;
     console.log("Datos recibidos en el backend:", JSON.stringify(data, null, 2));
@@ -10,21 +44,22 @@ export const envioPedimento = async (req, res) => {
         await client.query("BEGIN");
 
         // Desestructuración de datos recibidos
-        const { id_usuario, id_empresa, nombre_usuario, seccion1, seccion2, seccion3, seccion4, seccion5, seccion6, seccion7, contribuciones, CuadroLiquidacion, } = req.body;
+        const { id_usuario, id_empresa, nombre_usuario, id_domicilio, seccion1, seccion2, seccion3, seccion4, seccion5, seccion6, seccion7, contribuciones, CuadroLiquidacion, } = req.body;
 
         // **Insertar en pedimento (tabla principal)**
         const pedimentoQuery = `
-            INSERT INTO pedimento (no_pedimento, tipo_oper, clave_ped, id_empresa, id_user, nombre, fecha_hora)
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            INSERT INTO pedimento (no_pedimento, tipo_oper, clave_ped, id_empresa, id_user, nombre, fecha_hora,id_domicilio)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW(),$7)
             RETURNING no_pedimento;
         `;
         const pedimentoValues = [
             seccion1.noPedimento,
             seccion1.tipoOperacion,
             seccion1.clavePedi,
-            1,
-            9,
-            'Sebas'
+            id_empresa,
+            id_usuario,
+            nombre_usuario,
+            id_domicilio
         ];
         // Se inserta el pedimento y se obtiene el no_pedimento insertado
         const { rows } = await client.query(pedimentoQuery, pedimentoValues);
@@ -169,6 +204,7 @@ export const envioPedimento = async (req, res) => {
         //seccion 7
         if (seccion7 && seccion7.length > 0) {
             for (const seccion of seccion7) {
+                // Consulta para insertar en la tabla 'partidas'
                 const seccion7Query = `
                     INSERT INTO partidas (
                         no_pedimento, sec, fraccion, subd, vinc, met_val, umc, cantidad_umc, umt, 
@@ -177,73 +213,101 @@ export const envioPedimento = async (req, res) => {
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
                     RETURNING id_partida;
                 `;
-            
+        
+                // Valores a insertar en 'partidas'
                 const seccion7Values = [
                     insertedNoPedimento, 
-                    seccion7.sec, 
-                    seccion7.fraccion, 
-                    seccion7.Subd, 
-                    seccion7.vinc, 
-                    seccion7.MetS7P, 
-                    seccion7.UMCS7P, 
-                    seccion7.CantiUMCS7P, 
-                    seccion7.UMTS7P, 
-                    seccion7.CantiUMTS7P,
-                    seccion7.PVCS7P, 
-                    seccion7.PODS7P, 
-                    seccion7.DescS7P, 
-                    seccion7.VALADUS7P, 
-                    seccion7.IMPOPRES7P, 
-                    seccion7.PRECIOUNITS7P, 
-                    seccion7.VALAGRES7P, 
-                    seccion7.MarcaS7P, 
-                    seccion7.ModeloS7P, 
-                    seccion7.CodigoProS7P, 
-                    seccion7.ObserS7P
+                    seccion.sec, 
+                    seccion.fraccion || null, 
+                    seccion.subd || null, 
+                    seccion.vinc || null, 
+                    seccion.MetS7P || null, 
+                    seccion.UMCS7P || null, 
+                    seccion.CantiUMCS7P || null, 
+                    seccion.UMTS7P || null, 
+                    seccion.CantiUMTS7P || null,
+                    seccion.PVCS7P || null, 
+                    seccion.PODS7P || null, 
+                    seccion.DescS7P || null, 
+                    seccion.VALADUS7P || null, 
+                    seccion.IMPOPRES7P || null, 
+                    seccion.PRECIOUNITS7P || null, 
+                    seccion.VALAGRES7P || null, 
+                    seccion.MarcaS7P || null, 
+                    seccion.ModeloS7P || null, 
+                    seccion.CodigoProS7P || null, 
+                    seccion.ObserS7P || null
                 ];
-            
+        
+                // Verificar datos antes de la inserción
+                console.log("Consulta INSERT partidas:", seccion7Query);
+                console.log("Valores INSERT partidas:", seccion7Values);
+        
+                // Insertar la partida en la base de datos
                 const seccion7Result = await client.query(seccion7Query, seccion7Values);
-                const id_partida = seccion7Result.rows[0].id_partida; // Obtener el ID generado
-            
-                if (seccion7.contributions && seccion7.contributions.length > 0) {
-                    const contribucionQuery = `
-                        INSERT INTO parti_contr (
-                            con, tasa, t_t, f_p, importe, id_partida
-                        ) VALUES ($1, $2, $3, $4, $5, $6);
-                    `;
-            
-                    for (const contribucion of seccion7.contributions) {
-                        const contribucionValues = [
-                            contribucion.con, 
-                            contribucion.tasa, 
-                            contribucion.tt, 
-                            contribucion.fp, 
-                            contribucion.importe,
+        
+                // Verificar si se obtuvo un ID válido
+                if (!seccion7Result.rows || seccion7Result.rows.length === 0) {
+                    console.error("❌ Error: No se obtuvo un id_partida después de la inserción.");
+                    continue; // Saltar esta iteración si no hay id_partida
+                }
+        
+                const id_partida = seccion7Result.rows[0].id_partida;
+                console.log("✅ ID de partida insertado:", id_partida);
+        
+                // Si hay contribuciones asociadas a esta partida
+                if (seccion.contributions && seccion.contributions.length > 0) {
+                    const contribucionesValues = [];
+                    const placeholders = [];
+        
+                    seccion.contributions.forEach((contribucion, index) => {
+                        const offset = index * 6;
+                        placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`);
+                        contribucionesValues.push(
+                            contribucion.con || null, 
+                            contribucion.tasa || 0, 
+                            contribucion.tt || null, 
+                            contribucion.fp || null, 
+                            contribucion.importe || 0,
                             id_partida
-                        ];
-                        await client.query(contribucionQuery, contribucionValues);
-                    }
+                        );
+                    });
+        
+                    const contribucionesQuery = `
+                        INSERT INTO parti_contr (con, tasa, t_t, f_p, importe, id_partida)
+                        VALUES ${placeholders.join(", ")};
+                    `;
+        
+                    console.log("Consulta INSERT contribuciones:", contribucionesQuery);
+                    console.log("Valores INSERT contribuciones:", contribucionesValues);
+        
+                    await client.query(contribucionesQuery, contribucionesValues);
                 }
             }
         }
         
         //Tasas a nivel de pedimento
         if (contribuciones && contribuciones.length > 0) {
-            const contribucionQuery = `
-                INSERT INTO tasa_pedi (
-                    contribucion, cv_t_tasa, tasa, no_pedimento
-                ) VALUES ($1, $2, $3, $4);
-            `;
-
-            for (const contribucion of contribuciones) {
-                const contribucionValues = [
-                    contribucion.contribucion,             
+            const tasasValues = [];
+            const placeholdersTasas = [];
+        
+            contribuciones.forEach((contribucion, index) => {
+                const offset = index * 4;
+                placeholdersTasas.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`);
+                tasasValues.push(
+                    contribucion.contribucion,              
                     contribucion.clave,
                     contribucion.tasa || 0,
                     insertedNoPedimento
-                ];
-                await client.query(contribucionQuery, contribucionValues);
-            }
+                );
+            });
+        
+            const tasasQuery = `
+                INSERT INTO tasa_pedi (contribucion, cv_t_tasa, tasa, no_pedimento)
+                VALUES ${placeholdersTasas.join(", ")};
+            `;
+        
+            await client.query(tasasQuery, tasasValues);
         }
         //Cuadros de Liquidacion
         if (CuadroLiquidacion && CuadroLiquidacion.length > 0) {
@@ -296,5 +360,152 @@ export const envioPedimento = async (req, res) => {
         if (!res.headersSent) {
             res.status(500).json({ error: "Error interno del servidor" });
         }
+    }
+};
+
+export const editarPedimento = async (req, res) => {
+    const data = req.body;
+    console.log("Puto:", JSON.stringify(data, null, 2));
+    const { no_pedimento } = req.body;
+    console.log("Valor de PEDI:", no_pedimento); // Verifica si llega el valor
+
+    if (!no_pedimento) {
+        return res.status(400).json({ error: "El número de pedimento es requerido" });
+    }
+
+    let client;
+    try {
+        // Conectar con la base de datos y comenzar transacción
+        client = await pool.connect();
+        await client.query("BEGIN");
+        const pedimento = await client.query(
+            "SELECT * FROM pedimento WHERE no_pedimento = $1",
+            [parseInt(no_pedimento, 10)]        
+        );
+        if (pedimento.rowCount === 0) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "Pedimento no encontrado" });
+        }
+
+        // 2. Actualizar registros existentes en partidas
+        if (data.seccion7?.modified?.length > 0) {
+            for (const item of data.seccion7.modified) {
+                await client.query(
+                    `UPDATE partidas SET 
+                        sec = $1, fraccion = $2, subd = $3, vinc = $4, met_val = $5, umc = $6, cantidad_umc = $7, 
+                        umt = $8, cantidad_umt = $9, pvc = $10, pod = $11, descri = $12, val_adu = $13, 
+                        imp_precio_pag = $14, precio_unit = $15, val_agreg = $16, marca = $17, modelo = $18, 
+                        codigo_produ = $19, obser = $20
+                    WHERE id_partida = $21 AND no_pedimento = $22`,
+                    [
+                        item.sec, item.fraccion, item.subd, item.vinc, item.met_val, item.umc, 
+                        item.cantidad_umc, item.umt, item.cantidad_umt, item.pvc, item.pod, 
+                        item.descri, item.val_adu, item.imp_precio_pag, item.precio_unit, 
+                        item.val_agreg, item.marca, item.modelo, item.codigo_produ, item.obser, 
+                        item.id_partida, no_pedimento
+                    ]
+                );
+            }
+        }
+
+        // 3. Insertar nuevas partidas
+        if (data.seccion7?.added?.length > 0) {
+            for (const item of data.seccion7.added) {
+                await client.query(
+                    `INSERT INTO partidas (
+                        no_pedimento, sec, fraccion, subd, vinc, met_val, umc, cantidad_umc, umt, 
+                        cantidad_umt, pvc, pod, descri, val_adu, imp_precio_pag, precio_unit, 
+                        val_agreg, marca, modelo, codigo_produ, obser
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
+                    [
+                        no_pedimento, item.sec, item.fraccion, item.subd, item.vinc, item.met_val, 
+                        item.umc, item.cantidad_umc, item.umt, item.cantidad_umt, item.pvc, item.pod, 
+                        item.descri, item.val_adu, item.imp_precio_pag, item.precio_unit, 
+                        item.val_agreg, item.marca, item.modelo, item.codigo_produ, item.obser
+                    ]
+                );
+            }
+        }
+
+        // 4. Eliminar partidas
+        if (data.seccion7?.removed?.length > 0) {
+            for (const idPartida of data.seccion7.removed) {
+                await client.query(
+                    "DELETE FROM partidas WHERE id_partida = $1 AND no_pedimento = $2",
+                    [idPartida, no_pedimento]
+                );
+            }
+        }
+
+        // 5. Manejo de contribuciones
+        if (data.contribuciones?.added?.length > 0) {
+            for (const item of data.contribuciones.added) {
+                await client.query(
+                    `INSERT INTO tasa_pedi (contribucion, cv_t_tasa, tasa, no_pedimento) 
+                    VALUES ($1, $2, $3, $4)`,
+                    [item.contribucion, item.clave, item.tasa, no_pedimento]
+                );
+            }
+        }
+
+        if (data.contribuciones?.modified?.length > 0) {
+            for (const item of data.contribuciones.modified) {
+                await client.query(
+                    `UPDATE tasa_pedi SET contribucion = $1, cv_t_tasa = $2, tasa = $3 
+                    WHERE id_tasa = $4 AND no_pedimento = $5`,
+                    [item.contribucion, item.clave, item.tasa, item.id_tasa, no_pedimento]
+                );
+            }
+        }
+
+        if (data.contribuciones?.removed?.length > 0) {
+            for (const idTasa of data.contribuciones.removed) {
+                await client.query(
+                    "DELETE FROM tasa_pedi WHERE id_tasa = $1 AND no_pedimento = $2",
+                    [idTasa, no_pedimento]
+                );
+            }
+        }
+
+        // 6. Manejo del cuadro de liquidación
+        if (data.cuadroLiquidacion?.added?.length > 0) {
+            for (const item of data.cuadroLiquidacion.added) {
+                await client.query(
+                    `INSERT INTO cua_liqui (concepto, forma_pago, importe, no_pedimento) 
+                    VALUES ($1, $2, $3, $4)`,
+                    [item.concepto, item.formaPago, item.importe, no_pedimento]
+                );
+            }
+        }
+
+        if (data.cuadroLiquidacion?.modified?.length > 0) {
+            for (const item of data.cuadroLiquidacion.modified) {
+                await client.query(
+                    `UPDATE cua_liqui SET concepto = $1, forma_pago = $2, importe = $3 
+                    WHERE id_cua = $4 AND no_pedimento = $5`,
+                    [item.concepto, item.formaPago, item.importe, item.id_cua, no_pedimento]
+                );
+            }
+        }
+
+        if (data.cuadroLiquidacion?.removed?.length > 0) {
+            for (const idCua of data.cuadroLiquidacion.removed) {
+                await client.query(
+                    "DELETE FROM cua_liqui WHERE id_cua = $1 AND no_pedimento = $2",
+                    [idCua, no_pedimento]
+                );
+            }
+        }
+
+        await client.query("COMMIT"); // Confirmar la transacción
+
+        return res.status(200).json({ message: "Pedimento actualizado exitosamente." });
+
+    } catch (error) {
+        await client.query("ROLLBACK"); // Revertir la transacción en caso de error
+        console.error("Error al editar pedimento:", error);
+        return res.status(500).json({ error: "Error al editar el pedimento" });
+    } finally {
+        client.release(); // Liberar el cliente de la base de datos
     }
 };

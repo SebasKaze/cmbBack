@@ -2,8 +2,8 @@ import { pool } from '../db.js';
 
 //MATERIALES
 export const cargaMaterial = async (req,res)=>{
-    const data = req.body;
-    console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
+    //const data = req.body;
+    //console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
 
     try{
         const envioMaterial = req.body;
@@ -61,17 +61,78 @@ export const verMateriales = async (req, res) =>{
 };
 export const editarMaterial = async (req,res) =>{
     const data = req.body;
-    //console.log("Datos recibidos:", JSON.stringify(data, null, 2));
 
-    const {rows} = await pool.query(
-        `UPDATE materiales_de_empresa SET fraccion_arancelaria = $1,nombre_interno = $2,
-        descripcion_fraccion = $3,unidad_medida = $4 WHERE id_material_interno=$5 RETURNING *`,
-        [data.fraccion_arancelaria,data.nombre_interno,data.descripcion_fraccion,data.unidad_medida,
-        data.id_material_interno]
-    );
-    return res.json(rows[0]);
-}
+    try{
+        const { rows: MaterialID } = await pool.query(
+            'SELECT id_material FROM materiales_de_empresa WHERE id_material_interno = $1 AND id_domicilio =$2',
+            [data.id_material_interno, data.id_domicilio] 
+        );
+        if(MaterialID.length === 0){
+            return res.status(404).json({ message: "No se encontró el Producto." });
+        }
+        const id_material = MaterialID[0].id_material;
+        const { rowCount } = await pool.query(
+            `SELECT 1 FROM billete_de_materiales WHERE id_material = $1`,
+            [id_material]
+        );
+        if (rowCount > 0) {
+            return res.status(400).json({ message: "No es posible actualizar. El material ya está registrado en Productos." });
+        }
+        const {rows} = await pool.query(
+            `UPDATE materiales_de_empresa SET fraccion_arancelaria = $1,nombre_interno = $2,
+            descripcion_fraccion = $3,unidad_medida = $4 WHERE id_material_interno=$5 AND id_domicilio=$6
+            RETURNING *`,
+            [data.fraccion_arancelaria,data.nombre_interno,data.descripcion_fraccion,data.unidad_medida,
+            data.id_material_interno, data.id_domicilio]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "No se encontró el producto a actualizar." });
+        }
+        return res.json(rows[0]);
+    }catch (error) {
+        console.error("Error al actualizar producto:", error);
+        return res.status(500).json({ message: "Error interno del servidor." });
+    }
+    
 
+};
+
+export const eliminarMaterial = async (req, res) => {
+    const data = req.body;
+    //console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
+    
+    try{
+        const { rows: MaterialID } = await pool.query(
+            'SELECT id_material FROM materiales_de_empresa WHERE id_material_interno = $1 AND id_domicilio =$2',
+            [data.id_material_interno, data.id_domicilio] 
+        );
+        if(MaterialID.length === 0){
+            return res.status(404).json({ message: "No se encontró el Material." });
+        }
+        const id_material = MaterialID[0].id_material;
+        const { rowCount } = await pool.query(
+            `SELECT 1 FROM billete_de_materiales WHERE id_material = $1`,
+            [id_material]
+        );
+        if (rowCount > 0) {
+            return res.status(400).json({ message: "No es posible eliminar. El material ya está registrado en Productos." });
+        }const { row } = await pool.query(
+            `DELETE FROM materiales_de_empresa WHERE id_material=$1`,
+            [id_material]
+        );
+        
+        if (row === 0) {
+            return res.status(404).json({ message: "No se pudo eliminar." });
+        }
+        
+        return res.json({ message: "Material eliminado exitosamente." });
+        
+    }catch (error) {
+        console.error("Error al eliminar producto:", error);
+        return res.status(500).json({ message: "Error interno del servidor." });
+    }
+    
+};
 //PRODUCTOS
 
 export const cargaProducto = async (req,res)=>{
@@ -178,24 +239,62 @@ export const verProductos = async (req, res) =>{
     }
 };
 
-export const editarProducto = async (req,res) =>{
+export const editarProducto = async (req, res) => {
     const data = req.body;
     //console.log("Datos recibidos:", JSON.stringify(data, null, 2));
 
-    const {rows} = await pool.query(
-        `UPDATE productos_de_empresa SET fraccion_arancelaria = $1,nombre_interno = $2,
-        descripcion_fraccion = $3,unidad_medida = $4 WHERE id_material_interno=$5 RETURNING *`,
-        [data.fraccion_arancelaria,data.nombre_interno,data.descripcion_fraccion,data.unidad_medida,
-        data.id_material_interno]
-    );
+    try {
 
-    /*
-        Agregar el apartado para hacer la edicion a el billete de materiales
-        Podria utilizarse de nuevo el apartado de la tabla para la creacion, ya sea modificar un material
-        o agregar o quitar alguno
-    */
-    return res.json(rows[0]);
+        const { rows: ProductoID } = await pool.query(
+            `SELECT id_producto FROM productos_de_empresa WHERE id_producto_interno = $1 AND id_domicilio = $2`,
+            [data.id_producto_interno, data.id_domicilio]
+        );
+
+        if (ProductoID.length === 0) {
+            return res.status(404).json({ message: "No se encontró el Producto." });
+        }
+
+        const id_producto = ProductoID[0].id_producto;
+
+        // Verificar si el id_material ya está en la tabla Materiales
+        const { rowCount } = await pool.query(
+            `SELECT 1 FROM creacion_de_producto WHERE id_producto = $1`,
+            [id_producto]
+        );
+
+        if (rowCount > 0) {
+            return res.status(400).json({ message: "No es posible actualizar. El material ya está registrado en Materiales utilizados." });
+        }
+
+        // Si no está en Materiales, proceder con la actualización
+        const { rows } = await pool.query(
+            `UPDATE productos_de_empresa 
+            SET fraccion_arancelaria = $1, nombre_interno = $2, 
+                descripcion_fraccion = $3, unidad_medida = $4 
+            WHERE id_producto = $5
+            RETURNING *`,
+            [
+                data.fraccion_arancelaria,
+                data.nombre_interno,
+                data.descripcion_fraccion,
+                data.unidad_medida,
+                id_producto
+            ]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "No se encontró el producto a actualizar." });
+        }
+
+        return res.json(rows[0]);
+    } catch (error) {
+        console.error("Error al actualizar producto:", error);
+        return res.status(500).json({ message: "Error interno del servidor." });
+    }
+        
 };
+
+
 
 //BIllete de materiales
 export const verBillete = async (req, res) => {

@@ -7,7 +7,8 @@ import {
     cargaProducto,
     verProductos,
     editarProducto,
-    verBillete
+    verBillete,
+    eliminarMaterial,
 } from "../controllers/MateProdu.controllers.js";
 
 const router = Router();
@@ -15,6 +16,7 @@ const router = Router();
 router.post("/api/cargamateriales", cargaMaterial);
 router.get("/api/verMateriales", verMateriales);
 router.put("/api/editarmaterial/:id",editarMaterial);
+router.delete("/api/eliminarmaterial/:id",eliminarMaterial);
 
 //PRODUCTO
 router.post("/api/cargaproducto", cargaProducto);
