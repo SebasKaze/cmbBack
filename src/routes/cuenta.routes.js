@@ -7,7 +7,7 @@ import {
     borrarCuenta,
     putCuenta,
     loginCuenta,
-    verifyToken,
+    verifyToken
 } from '../controllers/cuenta.controllers.js'
 
 const router = Router();
@@ -26,9 +26,6 @@ router.delete("/cuenta/:id", borrarCuenta);
 
 //Actualiza cuenta
 router.put("/cuenta/:id", putCuenta);
-
-//Login
-router.post("/login", loginCuenta);
 
 //Login
 router.post("/login", loginCuenta);

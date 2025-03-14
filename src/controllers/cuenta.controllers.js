@@ -151,5 +151,4 @@ export const loginCuenta = async (req, res) => {
         res.status(500).json({ message: "Error interno del servidor" });
     }
 };
-
 export { verifyToken };
