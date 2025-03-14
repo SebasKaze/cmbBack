@@ -497,7 +497,7 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
-        if (data.seccion1) {
+        if (data.seccion1_2) {
             await client.query(
                 `UPDATE encabezado_p_pedimento 
                  SET 
@@ -534,19 +534,19 @@ export const editarPedimento = async (req, res) => {
                      feca_sal = $31
                  WHERE no_pedimento = $32`,
                 [
-                    data.seccion1.regimen, data.seccion1.des_ori, data.seccion1.tipo_cambio, 
-                    data.seccion1.peso_bruto, data.seccion1.aduana_e_s, data.seccion1.medio_transpo,
-                    data.seccion1.medio_transpo_arri, data.seccion1.medio_transpo_sali, 
-                    data.seccion1.valor_dolares, data.seccion1.valor_aduana, data.seccion1.precio_pagado,
-                    data.seccion1.rfc_import_export, data.seccion1.curp_import_export, 
-                    data.seccion1.razon_so_im_ex, data.seccion1.domicilio_im_ex, data.seccion1.val_seguros,
-                    data.seccion1.seguros, data.seccion1.fletes, data.seccion1.embalajes, 
-                    data.seccion1.otros_incremen, data.seccion1.transpo_decremen, 
-                    data.seccion1.seguro_decremen, data.seccion1.carga_decemen, 
-                    data.seccion1.desc_decremen, data.seccion1.otro_decremen, 
-                    data.seccion1.acuse_electroni_val, data.seccion1.codigo_barra, 
-                    data.seccion1.clv_sec_edu_despacho, data.seccion1.total_bultos, 
-                    data.seccion1.fecha_en, data.seccion1.feca_sal, 
+                    data.seccion1_2.regimen, data.seccion1_2.des_ori, data.seccion1_2.tipo_cambio, 
+                    data.seccion1_2.peso_bruto, data.seccion1_2.aduana_e_s, data.seccion1_2.medio_transpo,
+                    data.seccion1_2.medio_transpo_arri, data.seccion1_2.medio_transpo_sali, 
+                    data.seccion1_2.valor_dolares, data.seccion1_2.valor_aduana, data.seccion1_2.precio_pagado,
+                    data.seccion1_2.rfc_import_export, data.seccion1_2.curp_import_export, 
+                    data.seccion1_2.razon_so_im_ex, data.seccion1_2.domicilio_im_ex, data.seccion1_2.val_seguros,
+                    data.seccion1_2.seguros, data.seccion1_2.fletes, data.seccion1_2.embalajes, 
+                    data.seccion1_2.otros_incremen, data.seccion1_2.transpo_decremen, 
+                    data.seccion1_2.seguro_decremen, data.seccion1_2.carga_decemen, 
+                    data.seccion1_2.desc_decremen, data.seccion1_2.otro_decremen, 
+                    data.seccion1_2.acuse_electroni_val, data.seccion1_2.codigo_barra, 
+                    data.seccion1_2.clv_sec_edu_despacho, data.seccion1_2.total_bultos, 
+                    data.seccion1_2.fecha_en, data.seccion1_2.feca_sal, 
                     no_pedimento
                 ]
             );
@@ -611,13 +611,13 @@ export const editarPedimento = async (req, res) => {
         }
         
         await client.query(
-            `INSERT INTO historial_cambios (id_user,no_pedimento, des_ori, fecha_hora)
+            `INSERT INTO historial_cambios (id_user,no_pedimento, nombre, fecha_hora)
              VALUES ($1, $2, $3, $4)`,
             [data.id_usuario,no_pedimento, data.nombre_usuario , new Date()]
         );
 
         await client.query("COMMIT"); // Confirmar la transacción
-
+        console.log("Pedimento y datos relacionados cambiados correctamente");
         return res.status(200).json({ message: "Pedimento actualizado exitosamente." });
 
     } catch (error) {
