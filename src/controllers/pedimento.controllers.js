@@ -41,6 +41,7 @@ export const envioPedimento = async (req, res) => {
     try {
         // Conectar con la base de datos y comenzar transacción
         client = await pool.connect();
+        
         await client.query("BEGIN");
 
         // Desestructuración de datos recibidos
@@ -245,7 +246,35 @@ export const envioPedimento = async (req, res) => {
         
                 // Insertar la partida en la base de datos
                 const seccion7Result = await client.query(seccion7Query, seccion7Values);
-        
+                
+                //Insertar los datos en SALDO
+
+                const saldoQuery = `
+                    INSERT INTO saldo (no_pedimento, cantidad, tipo_saldo, estado, fraccion, fecha_sal)
+                    VALUES ($1,$2,$3,$4,$5,$6)
+                    RETURNING id_saldo;
+                `;
+                const saldoValues = [
+                    insertedNoPedimento,
+                    seccion.CantiUMTS7P,
+                    1,
+                    1,  
+                    seccion.fraccion,
+                    seccion1.fechaSalida,
+                ];
+                const saldoResult = await client.query(saldoQuery,saldoValues);
+                const idSaldo = saldoResult.rows[0].id_saldo; // Obtener el id_saldo
+                const restaQuery = `
+                    INSERT INTO resta_saldo_mu (id_saldo, no_pedimento,restante)
+                    VALUES ($1, $2, $3)
+                `; 
+                const restaValues = [
+                    idSaldo,
+                    insertedNoPedimento,
+                    seccion.CantiUMTS7P,
+                ];
+                await client.query(restaQuery,restaValues);
+
                 // Verificar si se obtuvo un ID válido
                 if (!seccion7Result.rows || seccion7Result.rows.length === 0) {
                     console.error("❌ Error: No se obtuvo un id_partida después de la inserción.");
@@ -348,6 +377,9 @@ export const envioPedimento = async (req, res) => {
         const datosTransPush = await client.query(datosTransQuery, datosTransValue);
         const candadosPush = await client.query(candadosQuery, candadosValue);
         const totalesPush = await client.query(totalesQuery, totalesValues);
+
+
+        
         
         // **Confirmar la transacción**
         await client.query("COMMIT");

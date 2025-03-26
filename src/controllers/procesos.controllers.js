@@ -172,13 +172,7 @@ export const mateCargaMeteriales = async (req, res) => {
         res.status(500).json({ error: "Error interno del servidor" });
     }
 };
-/*
-CORREGIR
-    La parte de carga en materiales utilizados no hace el descargo ni tiene la condicion por si se acaba materiales de
-    un pedimento
-    Checar si ponemos un select con los pedimentos o que se tome automaticamente el ultimo para sacar las mermas
 
-*/
     export const mateCargaGuardar = async (req, res) => {
         const data = req.body;
         //console.log("Datos recibidos en el backend:", JSON.stringify(data, null, 2));
@@ -247,79 +241,116 @@ CORREGIR
             
         }
     };
-    // Función para meter los datos en materiales utilizados 
-    const cargaMaterialUtilizado = async (id, materiales,id_domicilio) => {    
-        // Insertar materiales en la base de datos
-        if (Array.isArray(materiales) && materiales.length > 0) {
-            for (const material of materiales) {
-                try {                    
-                    // Consultar la fracción arancelaria
-                    const queryConsultaFracc = `
-                        SELECT fraccion_arancelaria
-                        FROM materiales_de_empresa
-                        WHERE id_material = $1;
-                    `;
-                    const valuesConsultaFracc = [material.id_material];
-                    const poolConsultaFracc = await pool.query(queryConsultaFracc, valuesConsultaFracc);
-
-                    if (poolConsultaFracc.rows.length === 0 || !poolConsultaFracc.rows[0].fraccion_arancelaria) {
-                        console.warn(`No se encontró fracción arancelaria para el material ${material.id_material}`);
-                        continue; // Pasar al siguiente material
-                    }
-
-                    const fraccion_arancelaria = poolConsultaFracc.rows[0].fraccion_arancelaria;
-
-                    // Obtener los no_pedimento de la tabla partidas
-                    const querySelectFraccion = `
-                        SELECT no_pedimento
-                        FROM partidas
-                        WHERE fraccion = $1;
-                    `;
-                    const valuesSelectFraccion = [fraccion_arancelaria];
-                    const pedimento_fraccion = await pool.query(querySelectFraccion, valuesSelectFraccion);
-
-                    if (pedimento_fraccion.rows.length === 0) {
-                        console.warn(`No se encontraron pedimentos para la fracción ${fraccion_arancelaria}`);
-                        continue; // Pasar al siguiente material
-                    }
-
-                    // Extraer los no_pedimento obtenidos
-                    const lista_pedimentos = pedimento_fraccion.rows.map(row => row.no_pedimento);
-
-                    // Buscar la fecha más antigua de estos pedimentos
-                    const queryFechaMasAntigua = `
-                        SELECT no_pedimento, feca_sal
-                        FROM encabezado_p_pedimento
-                        WHERE no_pedimento = ANY($1)
-                        ORDER BY feca_sal ASC
-                        LIMIT 1;
-                    `;
-                    const valuesFechaMasAntigua = [lista_pedimentos];
-                    const resultadoFechaAntigua = await pool.query(queryFechaMasAntigua, valuesFechaMasAntigua);
-
-                    if (resultadoFechaAntigua.rows.length === 0) {
-                        console.warn(`No se encontró información en encabezado_p_pedimento para los pedimentos ${lista_pedimentos}`);
-                        continue;
-                    }
-
-                    const pedimento_mas_viejo = resultadoFechaAntigua.rows[0];
+    const cargaMaterialUtilizado = async (id, materiales, id_domicilio) => {
+        const client = await pool.connect(); // Usar transacción para consistencia
         
-                    // Buscar la fecha más antigua de estos pedimentos
-                    const queryInsertarMU = `
-                        INSERT INTO material_utilizado (id_transformacion, id_material, cantidad,no_pedimento,id_domicilio)
-                        VALUES ($1, $2, $3,$4,$5)
-                        RETURNING *;
-                    `;
-                    const valuesInsertarMU = [id, material.id_material, material.cantidad, pedimento_mas_viejo.no_pedimento,id_domicilio];
-                    const resultadoMaterial = await pool.query(queryInsertarMU, valuesInsertarMU);
-
-                } catch (error) {
-                    console.error(`Error al procesar el material ${material.id_material}:`, error);
+        try {
+            await client.query('BEGIN');
+            
+            if (Array.isArray(materiales) && materiales.length > 0) {
+                for (const material of materiales) {
+                    let cantidadPendiente = material.cantidad;
+                    
+                    // Insertar en material_utilizado
+                    const resMU = await client.query(
+                        `INSERT INTO material_utilizado 
+                        (id_transformacion, id_material, cantidad, id_domicilio)
+                        VALUES ($1, $2, $3, $4) RETURNING id_uso`,
+                        [id, material.id_material, material.cantidad, id_domicilio]
+                    );
+                    const id_uso = resMU.rows[0].id_uso;
+    
+                    // Obtener fracción arancelaria
+                    const resFracc = await client.query(
+                        `SELECT fraccion_arancelaria 
+                         FROM materiales_de_empresa 
+                         WHERE id_material = $1`,
+                        [material.id_material]
+                    );
+                    
+                    if (!resFracc.rows[0]?.fraccion_arancelaria) {
+                        throw new Error(`Fracción no encontrada para material ${material.id_material}`);
+                    }
+                    const fraccion = resFracc.rows[0].fraccion_arancelaria;
+    
+                    // Procesar saldos
+                    while (cantidadPendiente > 0) {
+                        // Buscar el siguiente saldo disponible más antiguo
+                        const saldo = await client.query(`
+                            SELECT s.id_saldo, s.cantidad, s.no_pedimento,
+                                COALESCE(
+                                    (SELECT restante 
+                                     FROM resta_saldo_mu 
+                                     WHERE id_saldo = s.id_saldo 
+                                     ORDER BY id_resta_saldo_mu DESC 
+                                     LIMIT 1),
+                                    s.cantidad
+                                ) as restante_actual
+                            FROM saldo s
+                            WHERE s.fraccion = $1
+                              AND s.estado = 1
+                              AND ( -- Filtrar saldos con disponibilidad
+                                EXISTS (
+                                    SELECT 1 FROM resta_saldo_mu 
+                                    WHERE id_saldo = s.id_saldo 
+                                    AND restante > 0
+                                ) OR NOT EXISTS (
+                                    SELECT 1 FROM resta_saldo_mu 
+                                    WHERE id_saldo = s.id_saldo
+                                )
+                              )
+                            ORDER BY s.fecha_sal ASC
+                            LIMIT 1
+                        `, [fraccion]);
+    
+                        if (saldo.rows.length === 0) {
+                            await client.query('ROLLBACK');
+                            throw new Error(`Saldo insuficiente para fracción ${fraccion}`);
+                        }
+    
+                        const { 
+                            id_saldo, 
+                            no_pedimento, 
+                            restante_actual, 
+                            cantidad: saldo_original 
+                        } = saldo.rows[0];
+    
+                        // Calcular consumo
+                        const consumo = Math.min(cantidadPendiente, restante_actual);
+                        const nuevo_restante = restante_actual - consumo;
+    
+                        // Registrar el movimiento
+                        await client.query(
+                            `INSERT INTO resta_saldo_mu 
+                            (id_saldo, id_uso, restante, no_pedimento)
+                            VALUES ($1, $2, $3, $4)`,
+                            [id_saldo, id_uso, nuevo_restante, no_pedimento]
+                        );
+    
+                        // Actualizar estado del saldo si se agota
+                        if (nuevo_restante <= 0) {
+                            await client.query(
+                                `UPDATE saldo SET estado = 2 WHERE id_saldo = $1`,
+                                [id_saldo]
+                            );
+                        }
+    
+                        cantidadPendiente -= consumo;
+                    }
                 }
             }
+            
+            await client.query('COMMIT');
+        } catch (error) {
+            await client.query('ROLLBACK');
+            console.error('Error en transacción:', error.message);
+            throw error; // Propagar el error para manejo superior
+        } finally {
+            client.release();
         }
     };
-
+    
+    
 export const mateUtilizados = async (req, res) => { // como odio JavaScript por cierto
     try {
         const { id_empresa, id_domicilio } = req.query;
@@ -349,3 +380,69 @@ export const mateUtilizados = async (req, res) => { // como odio JavaScript por 
         res.status(500).json({ error: "Error interno del servidor" });
     }
 };
+export const saldoMuestra = async (req, res) => {
+    try {
+        const { id_empresa, id_domicilio } = req.query;
+
+        if (!id_empresa || !id_domicilio) {
+            return res.status(400).json({ error: "Parámetros id_empresa e id_domicilio son obligatorios" });
+        }
+
+        const queryPedimentos = `
+            SELECT no_pedimento
+            FROM pedimento
+            WHERE id_empresa = $1 AND id_domicilio = $2;
+        `;
+        const values = [id_empresa, id_domicilio];
+        const resultPedimentos = await pool.query(queryPedimentos, values);
+
+        if (resultPedimentos.rows.length === 0) {
+            return res.json({ mensaje: "No se encontraron pedimentos" });
+        }
+
+        let resultados = [];
+
+        for (const row of resultPedimentos.rows) {
+            const no_pedimento = row.no_pedimento;
+
+            const queryFraccion = `
+                SELECT fraccion
+                FROM saldo
+                WHERE no_pedimento = $1;
+            `;
+            const fraccionResult = await pool.query(queryFraccion, [no_pedimento]);
+
+            if (fraccionResult.rows.length === 0) {
+                continue;
+            }
+
+            const fraccion = fraccionResult.rows[0].fraccion;
+
+            const queryRestaSaldo = `
+                SELECT restante
+                FROM resta_saldo_mu
+                WHERE no_pedimento = $1
+                ORDER BY id_resta_saldo_mu DESC
+                LIMIT 1;
+            `;
+            const resultRestaSaldo = await pool.query(queryRestaSaldo, [no_pedimento]);
+
+            if (resultRestaSaldo.rows.length > 0) {
+                let resta = parseFloat(resultRestaSaldo.rows[0].restante) || 0;
+
+                resultados.push({ no_pedimento, fraccion, resta });
+            }
+        }
+
+        console.log("Resultados enviados al frontend:", resultados);
+        res.json(resultados);
+    } catch (error) {
+        console.error("Error al obtener datos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+
+
+
+
+
