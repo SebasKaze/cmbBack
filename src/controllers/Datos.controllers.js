@@ -1,7 +1,7 @@
 import { pool } from '../db.js';
 
+//Solicitud de datos generales
 export const DatosGenerales = async (req, res) => { 
-
 const {id_usuario, id_empresa} = req.body;
     try {
         const { rows } = await pool.query(`
@@ -26,9 +26,8 @@ const {id_usuario, id_empresa} = req.body;
     }
 };
 
+//Registro de empresa
 export const RegistroEmpresa = async (req, res) =>{
-    //const data = req.body;
-    //console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
     const fechaAhora = new Date().toLocaleDateString('es-ES', {
         day: '2-digit',
         month: '2-digit',
@@ -49,16 +48,16 @@ export const RegistroEmpresa = async (req, res) =>{
             fechaAhora,
             envioEmpresa.nombre,
         ];
-        const envioEmpresaPush = await pool.query(envioEmpresaQuery,envioEmpresaValues);
-        const data = "Datos Cargados"; // creo que eso no hace nada pero bueno
+        await pool.query(envioEmpresaQuery,envioEmpresaValues);
+        const data = "Datos Cargados"; 
         res.json(data);
-
     }catch (error){
         console.error("Error al obtener datos:", error);
         res.status(500).json({ error: "Error interno del servidor" });
     }
 };
 
+//Enviar empresa
 export const EnvioEmpresa = async(req,res) =>{
     try{
         const { rows } = await pool.query(`
@@ -72,11 +71,11 @@ export const EnvioEmpresa = async(req,res) =>{
         console.error("Error al obtener datos:", error);
         res.status(500).json({ error: "Error interno del servidor" });
     }
-
 };
 
+//Registrar Domicilio
 export const RegistroDomi = async(req,res) =>{
-    
+   
     try{
         const envioDomicilio = req.body;
         const envioDomicilioQuery = `
@@ -90,7 +89,7 @@ export const RegistroDomi = async(req,res) =>{
             envioDomicilio.domicilio,
             envioDomicilio.tipo_domi,
         ];
-        const envioDomicilioPush = await pool.query(envioDomicilioQuery,envioDomicilioValues);
+        await pool.query(envioDomicilioQuery,envioDomicilioValues);
     }catch(error){
         console.error("Error al obtener datos:", error);
         res.status(500).json({ error: "Error interno del servidor" });
@@ -98,9 +97,9 @@ export const RegistroDomi = async(req,res) =>{
 
 };
 
+//Informacion de domicilio
 export const InfoDomi = async (req,res) =>{
     const { id_empresa } = req.params;
-
     try {
         const { rows } = await pool.query(
             `SELECT 
@@ -111,7 +110,6 @@ export const InfoDomi = async (req,res) =>{
                 id_empresa = $1`,
             [id_empresa]
         );
-    
         res.json(rows);
     } catch (error) {
         console.error("Error al obtener domicilios:", error);
@@ -119,10 +117,8 @@ export const InfoDomi = async (req,res) =>{
     }
 };
 
+//Registrar usuario
 export const RegistroUsuario = async (req,res) => {
-    //const data = req.body;
-    //console.log("Datos recibidos:", JSON.stringify(data, null, 2));
-
     try{
         const envioUsuario = req.body;
         const envioUsuarioQuery = `
@@ -140,7 +136,7 @@ export const RegistroUsuario = async (req,res) => {
             envioUsuario.rol,
             envioUsuario.domicilioId,
         ];
-        const envioUsuarioPush = await pool.query(envioUsuarioQuery,envioUsuarioValues);
+        await pool.query(envioUsuarioQuery,envioUsuarioValues);
 
     }catch (error) {
         console.error("Error al obtener domicilios:", error);
@@ -148,8 +144,8 @@ export const RegistroUsuario = async (req,res) => {
     }
 };
 
+//Ver Domicilios
 export const verDomi = async (req, res) => { 
-    
     const {id_usuario, id_empresa} = req.body;
         try {
             const { rows } = await pool.query(`

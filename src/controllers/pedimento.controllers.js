@@ -1,9 +1,8 @@
 import { pool } from '../db.js';
-
 import multer from "multer";
-const storage = multer.memoryStorage(); // Almacena en memoria (puedes cambiarlo a disco)
-const upload = multer({ storage });
 
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 export const verPedimentos = async (req, res) => {
     const { id_empresa, id_domicilio } = req.query;
@@ -17,7 +16,6 @@ export const verPedimentos = async (req, res) => {
             `SELECT no_pedimento FROM pedimento WHERE id_empresa = $1 AND id_domicilio = $2`,
             [id_empresa, id_domicilio]
         );
-
         res.json(rows);
     } catch (error) {
         console.error("Error al obtener datos:", error);
@@ -26,27 +24,16 @@ export const verPedimentos = async (req, res) => {
 };
 
 export const subirArchivos = async (req, res) => {
-    console.log("Solicitud recibida en /subirarc");
-    console.log("Headers:", req.headers);
-    console.log("Datos recibidos Envio materiales:", JSON.stringify(req.body, null, 2));
-
     res.json({ message: "Datos recibidos correctamente" });
 };
 
 export const envioPedimento = async (req, res) => {
     const data = req.body;
-    console.log("Datos recibidos en el backend:", JSON.stringify(data, null, 2));
-
     let client;
     try {
-        // Conectar con la base de datos y comenzar transacción
         client = await pool.connect();
         await client.query("BEGIN");
-
-        // Desestructuración de datos recibidos
         const { id_usuario, id_empresa, nombre_usuario, id_domicilio, seccion1, seccion2, seccion3, seccion4, seccion5, seccion6, seccion7, contribuciones, CuadroLiquidacion, } = req.body;
-
-        // **Insertar en pedimento (tabla principal)**
         const pedimentoQuery = `
             INSERT INTO pedimento (no_pedimento, tipo_oper, clave_ped, id_empresa, id_user, nombre, fecha_hora,id_domicilio)
             VALUES ($1, $2, $3, $4, $5, $6, NOW(),$7)
@@ -61,17 +48,12 @@ export const envioPedimento = async (req, res) => {
             nombre_usuario,
             id_domicilio
         ];
-        // Se inserta el pedimento y se obtiene el no_pedimento insertado
         const { rows } = await client.query(pedimentoQuery, pedimentoValues);
         const insertedNoPedimento = rows[0].no_pedimento;
 
-        // **Verificación del pedimento insertado**
         if (!insertedNoPedimento) {
             throw new Error("No se pudo obtener el no_pedimento. Cancelando transacción.");
         }
-
-        // **Si el pedimento se insertó correctamente, se procede con el resto de tablas**
-        console.log("Pedimento insertado correctamente con no_pedimento:", insertedNoPedimento);
 
         const encaPQuery = `
                 INSERT INTO encabezado_p_pedimento (
@@ -204,7 +186,6 @@ export const envioPedimento = async (req, res) => {
         //seccion 7
         if (seccion7 && seccion7.length > 0) {
             for (const seccion of seccion7) {
-                // Consulta para insertar en la tabla 'partidas'
                 const seccion7Query = `
                     INSERT INTO partidas (
                         no_pedimento, sec, fraccion, subd, vinc, met_val, umc, cantidad_umc, umt, 
@@ -213,8 +194,6 @@ export const envioPedimento = async (req, res) => {
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
                     RETURNING id_partida;
                 `;
-        
-                // Valores a insertar en 'partidas'
                 const seccion7Values = [
                     insertedNoPedimento, 
                     seccion.sec, 
@@ -238,28 +217,43 @@ export const envioPedimento = async (req, res) => {
                     seccion.CodigoProS7P || null, 
                     seccion.ObserS7P || null
                 ];
-        
-                // Verificar datos antes de la inserción
-                console.log("Consulta INSERT partidas:", seccion7Query);
-                console.log("Valores INSERT partidas:", seccion7Values);
-        
-                // Insertar la partida en la base de datos
                 const seccion7Result = await client.query(seccion7Query, seccion7Values);
-        
-                // Verificar si se obtuvo un ID válido
+                const saldoQuery = `
+                    INSERT INTO saldo (no_pedimento, cantidad, tipo_saldo, estado, fraccion, fecha_sal)
+                    VALUES ($1,$2,$3,$4,$5,$6)
+                    RETURNING id_saldo;
+                `;
+                const saldoValues = [
+                    insertedNoPedimento,
+                    seccion.CantiUMTS7P,
+                    1,
+                    1,  
+                    seccion.fraccion,
+                    seccion1.fechaSalida,
+                ];
+                const saldoResult = await client.query(saldoQuery,saldoValues);
+                const idSaldo = saldoResult.rows[0].id_saldo; // Obtener el id_saldo
+                const restaQuery = `
+                    INSERT INTO resta_saldo_mu (id_saldo, no_pedimento,restante)
+                    VALUES ($1, $2, $3)
+                `; 
+                const restaValues = [
+                    idSaldo,
+                    insertedNoPedimento,
+                    seccion.CantiUMTS7P,
+                ];
+                await client.query(restaQuery,restaValues);
+
                 if (!seccion7Result.rows || seccion7Result.rows.length === 0) {
-                    console.error(" Error: No se obtuvo un id_partida después de la inserción.");
-                    continue; // Saltar esta iteración si no hay id_partida
+                    console.error("Error: No se obtuvo un id_partida después de la inserción.");
+                    continue;
                 }
         
                 const id_partida = seccion7Result.rows[0].id_partida;
-                console.log("ID de partida insertado:", id_partida);
-        
-                // Si hay contribuciones asociadas a esta partida
+
                 if (seccion.contributions && seccion.contributions.length > 0) {
                     const contribucionesValues = [];
                     const placeholders = [];
-        
                     seccion.contributions.forEach((contribucion, index) => {
                         const offset = index * 6;
                         placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`);
@@ -272,15 +266,10 @@ export const envioPedimento = async (req, res) => {
                             id_partida
                         );
                     });
-        
                     const contribucionesQuery = `
                         INSERT INTO parti_contr (con, tasa, t_t, f_p, importe, id_partida)
                         VALUES ${placeholders.join(", ")};
                     `;
-        
-                    console.log("Consulta INSERT contribuciones:", contribucionesQuery);
-                    console.log("Valores INSERT contribuciones:", contribucionesValues);
-        
                     await client.query(contribucionesQuery, contribucionesValues);
                 }
             }
@@ -290,7 +279,6 @@ export const envioPedimento = async (req, res) => {
         if (contribuciones && contribuciones.length > 0) {
             const tasasValues = [];
             const placeholdersTasas = [];
-        
             contribuciones.forEach((contribucion, index) => {
                 const offset = index * 4;
                 placeholdersTasas.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`);
@@ -301,15 +289,13 @@ export const envioPedimento = async (req, res) => {
                     insertedNoPedimento
                 );
             });
-        
             const tasasQuery = `
                 INSERT INTO tasa_pedi (contribucion, cv_t_tasa, tasa, no_pedimento)
                 VALUES ${placeholdersTasas.join(", ")};
             `;
-        
             await client.query(tasasQuery, tasasValues);
         }
-        //Cuadros de Liquidacion
+
         if (CuadroLiquidacion && CuadroLiquidacion.length > 0) {
             const cuadroLiQuery = `
                 INSERT INTO cua_liqui (
@@ -327,6 +313,7 @@ export const envioPedimento = async (req, res) => {
                 await client.query(cuadroLiQuery, cuadroLiValues);
             }
         }
+
         const totalesQuery = `
                 INSERT INTO totales (
                     efectivo, otros, total, no_pedimento)
@@ -341,22 +328,20 @@ export const envioPedimento = async (req, res) => {
             insertedNoPedimento
         ];
 
-        const encaPPush = await client.query(encaPQuery, encaPValues); 
-        const encaSecPush = await client.query(encaSecQuery, encaSecValues);
-        const datosProveComPush = await client.query(datosProveComQuery, datosProveComValues);
-        const datosDestiPush = await client.query(datosDestiQuery, datosDestiValues);
-        const datosTransPush = await client.query(datosTransQuery, datosTransValue);
-        const candadosPush = await client.query(candadosQuery, candadosValue);
-        const totalesPush = await client.query(totalesQuery, totalesValues);
-        
-        // **Confirmar la transacción**
+        await client.query(encaPQuery, encaPValues); 
+        await client.query(encaSecQuery, encaSecValues);
+        await client.query(datosProveComQuery, datosProveComValues);
+        await client.query(datosDestiQuery, datosDestiValues);
+        await client.query(datosTransQuery, datosTransValue);
+        await client.query(candadosQuery, candadosValue);
+        await client.query(totalesQuery, totalesValues);
         await client.query("COMMIT");
-        console.log("Pedimento y datos relacionados insertados correctamente");
         res.status(201).json({ message: "Pedimento insertado correctamente", no_pedimento: insertedNoPedimento });
-
     } catch (error) {
+
         if (client) await client.query("ROLLBACK");
         console.error("Error al insertar pedimento:", error);
+        
         if (!res.headersSent) {
             res.status(500).json({ error: "Error interno del servidor" });
         }
@@ -365,9 +350,7 @@ export const envioPedimento = async (req, res) => {
 
 export const editarPedimento = async (req, res) => {
     const data = req.body;
-    console.log("Pedimento:", JSON.stringify(data, null, 2));
     const { no_pedimento } = req.body;
-    console.log("Valor de PEDI:", no_pedimento);
 
     if (!no_pedimento) {
         return res.status(400).json({ error: "El número de pedimento es requerido" });
@@ -375,19 +358,19 @@ export const editarPedimento = async (req, res) => {
 
     let client;
     try {
-        // Conectar con la base de datos y comenzar transacción
         client = await pool.connect();
         await client.query("BEGIN");
         const pedimento = await client.query(
             "SELECT * FROM pedimento WHERE no_pedimento = $1",
             [parseInt(no_pedimento, 10)]        
         );
+        
         if (pedimento.rowCount === 0) {
             await client.query("ROLLBACK");
             return res.status(404).json({ error: "Pedimento no encontrado" });
         }
 
-        // 2. Actualizar registros existentes en partidas
+        // Actualizar partidas
         if (data.seccion7?.modified?.length > 0) {
             for (const item of data.seccion7.modified) {
                 await client.query(
@@ -408,7 +391,7 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
-        // 3. Insertar nuevas partidas
+        //Insertar nuevas partidas
         if (data.seccion7?.added?.length > 0) {
             for (const item of data.seccion7.added) {
                 await client.query(
@@ -427,7 +410,7 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
-        // 4. Eliminar partidas
+        //Eliminar partidas
         if (data.seccion7?.removed?.length > 0) {
             for (const idPartida of data.seccion7.removed) {
                 await client.query(
@@ -437,7 +420,7 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
-        // 5. Manejo de contribuciones
+        //Agregar contribuciones
         if (data.contribuciones?.added?.length > 0) {
             for (const item of data.contribuciones.added) {
                 await client.query(
@@ -448,6 +431,7 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
+        //Actualizar contribuciones
         if (data.contribuciones?.modified?.length > 0) {
             for (const item of data.contribuciones.modified) {
                 await client.query(
@@ -458,6 +442,7 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
+        //Eliminar contribuciones
         if (data.contribuciones?.removed?.length > 0) {
             for (const idTasa of data.contribuciones.removed) {
                 await client.query(
@@ -467,7 +452,7 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
-        // 6. Manejo del cuadro de liquidación
+        // Agregar cuadros de liquidacion
         if (data.cuadroLiquidacion?.added?.length > 0) {
             for (const item of data.cuadroLiquidacion.added) {
                 await client.query(
@@ -478,6 +463,7 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
+        //Actualizar cuadros de liquidacion
         if (data.cuadroLiquidacion?.modified?.length > 0) {
             for (const item of data.cuadroLiquidacion.modified) {
                 await client.query(
@@ -488,6 +474,7 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
+        //Eliminar cuadros de liquidacion
         if (data.cuadroLiquidacion?.removed?.length > 0) {
             for (const idCua of data.cuadroLiquidacion.removed) {
                 await client.query(
@@ -497,7 +484,8 @@ export const editarPedimento = async (req, res) => {
             }
         }
 
-        if (data.seccion1_2) {
+        //Actualizar seccion 1
+        if (data.seccion1) {
             await client.query(
                 `UPDATE encabezado_p_pedimento 
                  SET 
@@ -534,25 +522,26 @@ export const editarPedimento = async (req, res) => {
                      feca_sal = $31
                  WHERE no_pedimento = $32`,
                 [
-                    data.seccion1_2.regimen, data.seccion1_2.des_ori, data.seccion1_2.tipo_cambio, 
-                    data.seccion1_2.peso_bruto, data.seccion1_2.aduana_e_s, data.seccion1_2.medio_transpo,
-                    data.seccion1_2.medio_transpo_arri, data.seccion1_2.medio_transpo_sali, 
-                    data.seccion1_2.valor_dolares, data.seccion1_2.valor_aduana, data.seccion1_2.precio_pagado,
-                    data.seccion1_2.rfc_import_export, data.seccion1_2.curp_import_export, 
-                    data.seccion1_2.razon_so_im_ex, data.seccion1_2.domicilio_im_ex, data.seccion1_2.val_seguros,
-                    data.seccion1_2.seguros, data.seccion1_2.fletes, data.seccion1_2.embalajes, 
-                    data.seccion1_2.otros_incremen, data.seccion1_2.transpo_decremen, 
-                    data.seccion1_2.seguro_decremen, data.seccion1_2.carga_decemen, 
-                    data.seccion1_2.desc_decremen, data.seccion1_2.otro_decremen, 
-                    data.seccion1_2.acuse_electroni_val, data.seccion1_2.codigo_barra, 
-                    data.seccion1_2.clv_sec_edu_despacho, data.seccion1_2.total_bultos, 
-                    data.seccion1_2.fecha_en, data.seccion1_2.feca_sal, 
+                    data.seccion1.regimen, data.seccion1.des_ori, data.seccion1.tipo_cambio, 
+                    data.seccion1.peso_bruto, data.seccion1.aduana_e_s, data.seccion1.medio_transpo,
+                    data.seccion1.medio_transpo_arri, data.seccion1.medio_transpo_sali, 
+                    data.seccion1.valor_dolares, data.seccion1.valor_aduana, data.seccion1.precio_pagado,
+                    data.seccion1.rfc_import_export, data.seccion1.curp_import_export, 
+                    data.seccion1.razon_so_im_ex, data.seccion1.domicilio_im_ex, data.seccion1.val_seguros,
+                    data.seccion1.seguros, data.seccion1.fletes, data.seccion1.embalajes, 
+                    data.seccion1.otros_incremen, data.seccion1.transpo_decremen, 
+                    data.seccion1.seguro_decremen, data.seccion1.carga_decemen, 
+                    data.seccion1.desc_decremen, data.seccion1.otro_decremen, 
+                    data.seccion1.acuse_electroni_val, data.seccion1.codigo_barra, 
+                    data.seccion1.clv_sec_edu_despacho, data.seccion1.total_bultos, 
+                    data.seccion1.fecha_en, data.seccion1.feca_sal, 
                     no_pedimento
                 ]
             );
             
         }
         
+        //Actualizar seccion 2
         if (data.seccion2) {
             await client.query(
                 `UPDATE encabezado_sec_pedimento 
@@ -562,6 +551,7 @@ export const editarPedimento = async (req, res) => {
             );
         }
         
+        //Actualizar seccion 3
         if (data.seccion3) {
             await client.query(
                 `UPDATE datos_proveedor_comprador 
@@ -578,6 +568,7 @@ export const editarPedimento = async (req, res) => {
             );
         }
         
+        //Actualizar seccion 4
         if (data.seccion4) {
             await client.query(
                 `UPDATE datos_d 
@@ -587,6 +578,7 @@ export const editarPedimento = async (req, res) => {
             );
         }
         
+        //Actualizar seccion 5
         if (data.seccion5) {
             await client.query(
                 `UPDATE datos_transport 
@@ -601,6 +593,7 @@ export const editarPedimento = async (req, res) => {
             );
         }
         
+        //Actualizar seccion 6
         if (data.seccion6) {
             await client.query(
                 `UPDATE candados 
@@ -611,20 +604,17 @@ export const editarPedimento = async (req, res) => {
         }
         
         await client.query(
-            `INSERT INTO historial_cambios (id_user,no_pedimento, nombre, fecha_hora)
+            `INSERT INTO historial_cambios (id_user,no_pedimento, des_ori, fecha_hora)
              VALUES ($1, $2, $3, $4)`,
             [data.id_usuario,no_pedimento, data.nombre_usuario , new Date()]
         );
-
-        await client.query("COMMIT"); // Confirmar la transacción
-        console.log("Pedimento y datos relacionados cambiados correctamente");
+        await client.query("COMMIT");
         return res.status(200).json({ message: "Pedimento actualizado exitosamente." });
-
     } catch (error) {
-        await client.query("ROLLBACK"); // Revertir la transacción en caso de error
+        await client.query("ROLLBACK");
         console.error("Error al editar pedimento:", error);
         return res.status(500).json({ error: "Error al editar el pedimento" });
     } finally {
-        client.release(); // Liberar el cliente de la base de datos
+        client.release();
     }
 };
