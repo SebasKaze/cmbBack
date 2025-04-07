@@ -24,6 +24,92 @@ export const activoFijo = async (req, res) => { //Ver Activo Fijo
     }
 };
 
+export const pedimentoActivofijo = async (req, res) => { //Ver Activo Fijo
+    const { id_empresa, id_domicilio} = req.query;
+    console.log(id_domicilio,id_empresa);
+    if (!id_empresa || !id_domicilio) {
+        return res.status(400).json({ message: "Faltan parámetros requeridos." });
+    }
+    try {
+        const { rows } = await pool.query(`
+            SELECT 
+                no_pedimento::text AS no_pedimento
+            FROM 
+                pedimento
+            WHERE 
+                id_empresa = $1 
+                AND 
+                id_domicilio = $2
+                AND
+                clave_ped = 'AF'
+            `,[id_empresa,id_domicilio]);
+        res.json(rows);
+    } catch (error) {
+        console.error("Error al obtener datos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+
+export const crearActivoFijo = async (req, res) => {
+    const data = req.body;
+  
+    const { id_empresa, id_domicilio } = data;
+  
+    if (!id_empresa || !id_domicilio) {
+      return res.status(400).json({ message: "Faltan parámetros requeridos." });
+    }
+  
+    try {
+      // Insertar en tabla activo_fijo
+      const activoQuery = `
+        INSERT INTO activo_fijo (
+          id_activo_fijo_interno,
+          id_empresa,
+          fraccion_arancelaria,
+          nombre_activofijo,
+          ubicacion_interna,
+          descripcion,
+          id_domicilio
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id_activo_fijo
+      `;
+  
+      const activoValues = [
+        data.idInterno,
+        id_empresa,
+        data.fraccion,
+        data.nombre_activofijo,
+        data.ubicacion_interna,
+        data.descripcion,
+        id_domicilio
+      ];
+  
+      const result = await pool.query(activoQuery, activoValues);
+      const id_activo_fijo = result.rows[0].id_activo_fijo;
+  
+      // Insertar pedimentos si existen y no están vacíos
+      const pedimentos = data.pedimentosSeleccionados.filter(p => p && p.trim() !== "");
+  
+      for (const pedimento of pedimentos) {
+        await pool.query(
+          `
+          INSERT INTO pedimentos_activo_fijo (activo_fijo, pedimento)
+          VALUES ($1, $2)
+          `,
+          [id_activo_fijo, pedimento]
+        );
+      }
+  
+      res.status(201).json({ message: "Activo fijo creado correctamente", id_activo_fijo });
+  
+    } catch (error) {
+      console.error("Error al crear activo fijo:", error);
+      res.status(500).json({ error: "Error interno del servidor" });
+    }
+  };
+  
+
 export const verPedimento = async (req, res) => { // como odio JavaScript por cierto
     try {
         const { id_empresa, id_domicilio } = req.query;

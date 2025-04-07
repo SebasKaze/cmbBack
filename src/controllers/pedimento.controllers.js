@@ -25,13 +25,7 @@ export const verPedimentos = async (req, res) => {
     }
 };
 
-export const subirArchivos = async (req, res) => {
-    console.log("Solicitud recibida en /subirarc");
-    console.log("Headers:", req.headers);
-    console.log("Datos recibidos Envio materiales:", JSON.stringify(req.body, null, 2));
 
-    res.json({ message: "Datos recibidos correctamente" });
-};
 
 export const envioPedimento = async (req, res) => {
     const data = req.body;

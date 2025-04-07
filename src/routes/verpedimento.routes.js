@@ -5,6 +5,8 @@ import {
     activoFijo,
     verDomicilios,
     consultaPedimento,
+    crearActivoFijo,
+    pedimentoActivofijo,
 } from '../controllers/verpedimento.controllers.js'
 
 const router = Router();
@@ -12,6 +14,9 @@ const router = Router();
 router.get("/api/verpedimento", verPedimento); // Mostrar cosas en pedimentos
 
 router.get("/api/activofijo",activoFijo);
+router.get("/api/pedimentos/activofijo",pedimentoActivofijo);
+
+router.post("/api/crearaf", crearActivoFijo);
 
 router.get("/api/verDomicilios", verDomicilios ); //Mostrar domicilios
 

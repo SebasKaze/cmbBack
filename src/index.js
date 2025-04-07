@@ -7,23 +7,21 @@ import verPedimentos from './routes/verpedimento.routes.js';
 import MateProductos from './routes/MateProdu.routes.js';
 import Datos from './routes/Datos.routes.js';
 import Procesos from './routes/procesos.routes.js';
-
+import Reportes from './routes/reportes.routes.js';
 
 
 import morgan from 'morgan';
 import cors from "cors";
 import multer from "multer";
+import fs from 'node:fs';
 
 
+
+export const upload = multer({dest: 'uploads/'});
 const app = express();
 
-// Aumentar el límite del tamaño de la carga a 50MB (puedes ajustarlo)
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Configurar Multer (opcional si usas subida de archivos)
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+
 
 // Configuración de CORS
 app.use(cors());
@@ -35,6 +33,7 @@ app.use(verPedimentos); //Pestaña de Pedimentos
 app.use(MateProductos); //Materiales
 app.use(Datos); // Ver datos Generales y domicilios
 app.use(Procesos);// Pestaña de procesos
+app.use(Reportes);//Generar los reportes
 
 // Cargar y leer el archivo XLSX
 let tigieData = [];
@@ -68,6 +67,28 @@ app.get("/api/cargamateriales/fracciones", (req, res) => {
 
     res.json(resultado);
 });
+/*
+ENVIO DE DOCUMENTOS
+*/
+
+
+//Ruta para subir imagenes 
+app.post('/api/pedimentos/subirarc/subir',upload.array('documentos',10), (req,res) => {
+    req.files.map(nombreDoc);
+    res.send('Si efectivamente')
+})
+function nombreDoc(file){
+    const newPath = `uploads/${file.originalname}`;
+    fs.renameSync(file.path, newPath);
+    return newPath;
+}
+
+
+
+
+
+
+
 
 app.listen(PORT);
 console.log('Puerto escuchando en', PORT);

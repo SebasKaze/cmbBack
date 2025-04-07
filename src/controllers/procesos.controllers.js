@@ -1,6 +1,8 @@
 import { pool } from '../db.js';
+import path from 'path';
 
-export const entradaMercancia = async (req, res) => { // como odio JavaScript por cierto
+
+export const entradaMercancia = async (req, res) => { 
     try {
         const { id_empresa, id_domicilio } = req.query;
 
@@ -13,11 +15,13 @@ export const entradaMercancia = async (req, res) => { // como odio JavaScript po
             SELECT 
                 p.no_pedimento, 
                 p.clave_ped,
-                TO_CHAR(e.fecha_en, 'YYYY-MM-DD') AS fecha_en
+                TO_CHAR(e.feca_sal, 'YYYY-MM-DD') AS fecha_en
             FROM 
                 pedimento p
             JOIN encabezado_p_pedimento e ON p.no_pedimento = e.no_pedimento
-            WHERE p.id_empresa = $1 AND p.id_domicilio = $2 AND p.tipo_oper = 'IMP';
+            WHERE p.id_empresa = $1 AND p.id_domicilio = $2 AND p.tipo_oper = 'IMP'
+            ORDER BY e.feca_sal DESC
+            ;
         `;
         const values = [id_empresa, id_domicilio];
 
@@ -29,7 +33,7 @@ export const entradaMercancia = async (req, res) => { // como odio JavaScript po
     }
 };
 
-export const salidaMercancias = async (req, res) => { // como odio JavaScript por cierto
+export const salidaMercancias = async (req, res) => { 
     try {
         const { id_empresa, id_domicilio } = req.query;
 
@@ -42,13 +46,41 @@ export const salidaMercancias = async (req, res) => { // como odio JavaScript po
             SELECT 
                 p.no_pedimento, 
                 p.clave_ped,
-                TO_CHAR(e.fecha_en, 'YYYY-MM-DD') AS fecha_en
+                TO_CHAR(e.feca_sal, 'YYYY-MM-DD') AS fecha_en
             FROM 
                 pedimento p
             JOIN encabezado_p_pedimento e ON p.no_pedimento = e.no_pedimento
-            WHERE p.id_empresa = $1 AND p.id_domicilio = $2 AND p.tipo_oper = 'EXP';
+            WHERE p.id_empresa = $1 AND p.id_domicilio = $2 AND p.tipo_oper = 'EXP'
+            ORDER BY e.feca_sal DESC;
         `;
         const values = [id_empresa, id_domicilio];
+
+        const { rows } = await pool.query(query, values);
+        res.json(rows);
+    } catch (error) {
+        console.error("Error al obtener datos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+
+export const entradaMercanciasFracciones = async (req, res) => {
+    try {
+        const { no_pedimento } = req.query;  // ← Corregido: ahora toma el parámetro del query string
+
+        if (!no_pedimento) {
+            return res.status(400).json({ error: "El parámetro no_pedimento es obligatorio" });
+        }
+
+        const query = `
+            SELECT 
+                fraccion,
+                cantidad_umt 
+            FROM 
+                partidas
+            WHERE 
+                no_pedimento = $1;
+        `;
+        const values = [no_pedimento];
 
         const { rows } = await pool.query(query, values);
         res.json(rows);
@@ -369,6 +401,7 @@ export const mateUtilizados = async (req, res) => { // como odio JavaScript por 
                 creacion_de_producto
             WHERE
                 id_empresa = $1 AND id_domicilio = $2
+            ORDER BY fecha_transformacion ASC
             ;
         `;
         const values = [id_empresa, id_domicilio];
@@ -441,6 +474,74 @@ export const saldoMuestra = async (req, res) => {
         res.status(500).json({ error: "Error interno del servidor" });
     }
 };
+/*
+export const subidaArchivos = async (req, res) => {
+    const { pedimento } = req.body;
+
+    if (!pedimento) {
+        return res.status(400).json({ message: "El número de pedimento es requerido" });
+    }
+
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: "No se subieron archivos" });
+    }
+
+    try {
+        // Validar que el pedimento exista en la base de datos (opcional)
+        const pedimentoCheck = await pool.query(
+            "SELECT 1 FROM pedimentos WHERE no_pedimento = $1", 
+            [pedimento]
+        );
+        
+        if (pedimentoCheck.rows.length === 0) {
+            return res.status(404).json({ message: "Pedimento no encontrado" });
+        }
+
+        // Procesar archivos en una transacción
+        await pool.query('BEGIN');
+        
+        try {
+            for (const file of req.files) {
+                const relativePath = path.join("uploads", file.filename);
+                await pool.query(
+                    "INSERT INTO doc_pedi (no_pedimento, doc_ar) VALUES ($1, $2)",
+                    [pedimento, relativePath]
+                );
+            }
+            await pool.query('COMMIT');
+            
+            res.json({ 
+                message: "Archivos subidos con éxito",
+                uploadedFiles: req.files.map(file => ({
+                    originalName: file.originalname,
+                    savedName: file.filename,
+                    size: file.size,
+                    mimetype: file.mimetype
+                }))
+            });
+        } catch (error) {
+            await pool.query('ROLLBACK');
+            throw error;
+        }
+    } catch (error) {
+        console.error("Error al subir archivos:", error);
+        
+        // Eliminar archivos subidos si hubo error
+        if (req.files) {
+            req.files.forEach(file => {
+                fs.unlink(path.join("uploads", file.filename), () => {});
+            });
+        }
+        
+        res.status(500).json({ 
+            error: "Error al procesar los archivos",
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+    console.log(req.file);
+    res.send('Si efectivamente');
+};
+*/
 
 
 
