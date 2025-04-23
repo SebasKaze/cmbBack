@@ -394,6 +394,7 @@ export const mateUtilizados = async (req, res) => { // como odio JavaScript por 
 
         const query = `
             SELECT 
+                id_transformacion,
                 nombre,
                 cantidad,
                 fecha_transformacion
@@ -413,6 +414,35 @@ export const mateUtilizados = async (req, res) => { // como odio JavaScript por 
         res.status(500).json({ error: "Error interno del servidor" });
     }
 };
+export const mateUtilizadosVer = async (req, res) => { 
+    try {
+        const { id_transformacion } = req.query;
+
+        const query = `
+            SELECT 
+                mu.id_material,
+                m.nombre_interno,
+                mu.cantidad
+            FROM 
+                material_utilizado mu
+            JOIN 
+                materiales_de_empresa m
+            ON 
+                mu.id_material = m.id_material
+            WHERE
+                mu.id_transformacion = $1
+        `;
+
+        const values = [parseInt(id_transformacion)];
+
+        const { rows } = await pool.query(query, values);
+        res.json(rows);
+    } catch (error) {
+        console.error("Error al obtener datos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+};
+
 export const saldoMuestra = async (req, res) => {
     try {
         const { id_empresa, id_domicilio } = req.query;
@@ -474,74 +504,7 @@ export const saldoMuestra = async (req, res) => {
         res.status(500).json({ error: "Error interno del servidor" });
     }
 };
-/*
-export const subidaArchivos = async (req, res) => {
-    const { pedimento } = req.body;
 
-    if (!pedimento) {
-        return res.status(400).json({ message: "El número de pedimento es requerido" });
-    }
-
-    if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ message: "No se subieron archivos" });
-    }
-
-    try {
-        // Validar que el pedimento exista en la base de datos (opcional)
-        const pedimentoCheck = await pool.query(
-            "SELECT 1 FROM pedimentos WHERE no_pedimento = $1", 
-            [pedimento]
-        );
-        
-        if (pedimentoCheck.rows.length === 0) {
-            return res.status(404).json({ message: "Pedimento no encontrado" });
-        }
-
-        // Procesar archivos en una transacción
-        await pool.query('BEGIN');
-        
-        try {
-            for (const file of req.files) {
-                const relativePath = path.join("uploads", file.filename);
-                await pool.query(
-                    "INSERT INTO doc_pedi (no_pedimento, doc_ar) VALUES ($1, $2)",
-                    [pedimento, relativePath]
-                );
-            }
-            await pool.query('COMMIT');
-            
-            res.json({ 
-                message: "Archivos subidos con éxito",
-                uploadedFiles: req.files.map(file => ({
-                    originalName: file.originalname,
-                    savedName: file.filename,
-                    size: file.size,
-                    mimetype: file.mimetype
-                }))
-            });
-        } catch (error) {
-            await pool.query('ROLLBACK');
-            throw error;
-        }
-    } catch (error) {
-        console.error("Error al subir archivos:", error);
-        
-        // Eliminar archivos subidos si hubo error
-        if (req.files) {
-            req.files.forEach(file => {
-                fs.unlink(path.join("uploads", file.filename), () => {});
-            });
-        }
-        
-        res.status(500).json({ 
-            error: "Error al procesar los archivos",
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-    }
-    console.log(req.file);
-    res.send('Si efectivamente');
-};
-*/
 
 
 

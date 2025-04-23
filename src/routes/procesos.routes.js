@@ -10,6 +10,7 @@ import {
     mateCargaGuardar,
     mateUtilizados,
     saldoMuestra,
+    mateUtilizadosVer,
     
 
 } from '../controllers/procesos.controllers.js'
@@ -36,6 +37,6 @@ router.get("/api/procesos/mateutili", mateUtilizados); //Hacer la consulta de Ma
 
 router.get("/api/procesos/saldoMuestra", saldoMuestra); //Mostrar el saldo actual
 
-
+router.get("/api/procesos/mateutili/vermateuti", mateUtilizadosVer);//Ver los materiales que se utilizan por producto
 export default router;
 
