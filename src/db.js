@@ -9,13 +9,4 @@ export const pool = new pg.Pool({
     port: 5432,                // Puerto por defecto de PostgreSQL
 });
 
-// Probar la conexión
-/*
-pool.connect((err, client, release) => {
-if (err) {
-    return console.error('Error al conectar con la base de datos:', err.stack);
-}
-    console.log('Conexión exitosa a la base de datos');
-    release(); // Liberar el cliente después de probar
-});
-*/
+

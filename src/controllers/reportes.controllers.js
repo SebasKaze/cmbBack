@@ -5,7 +5,7 @@ import PDFDocument from "pdfkit";
 
 export const entradaMercanciaReporteExcel = async (req, res) => {
     try {
-        const { id_empresa, id_domicilio , fechaInicio, fechaFin } = req.query;
+        const { id_empresa, id_domicilio, fechaInicio, fechaFin } = req.query;
         if (!id_empresa || !id_domicilio) {
             return res.status(400).json({ error: "Faltan parámetros" });
         }
@@ -36,15 +36,19 @@ export const entradaMercanciaReporteExcel = async (req, res) => {
         const valuesDom = [id_empresa];
         const { rows: domicilioData } = await pool.query(queryDom, valuesDom);
 
-        // Construcción dinámica del query
+        // Construcción dinámica del query con JOIN a partidas
         let query = `
             SELECT 
                 p.no_pedimento, 
                 p.clave_ped,
-                TO_CHAR(e.feca_sal, 'YYYY-MM-DD') AS fecha_en
+                TO_CHAR(e.feca_sal, 'YYYY-MM-DD') AS fecha_en,
+                pa.fraccion,
+                pa.cantidad_umc,
+                pa.descri
             FROM 
                 pedimento p
             JOIN encabezado_p_pedimento e ON p.no_pedimento = e.no_pedimento
+            LEFT JOIN partidas pa ON p.no_pedimento = pa.no_pedimento
             WHERE p.id_empresa = $1 
             AND p.id_domicilio = $2 
             AND p.tipo_oper = 'IMP'
@@ -56,25 +60,51 @@ export const entradaMercanciaReporteExcel = async (req, res) => {
             query += " AND e.fecha_en BETWEEN $3 AND $4";
             values.push(fechaInicio, fechaFin);
         }
+        
+        // Ordenar por número de pedimento para agrupar las partidas
+        query += " ORDER BY p.no_pedimento, pa.fraccion";
+        
         const { rows } = await pool.query(query, values);
 
         // Crear un libro de Excel
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet("EntradaMercancias");
 
-        // **Agregar datos generales en las primeras filas**
+        // Agregar datos generales en las primeras filas
         worksheet.addRow(["Empresa:", datosGenerales[0]?.razon_social || "N/A"]);
         worksheet.addRow(["RFC:", datosGenerales[0]?.rfc_empresa || "N/A"]);
         worksheet.addRow(["Número IMMEX:", datosGenerales[0]?.no_immex || "N/A"]);
         worksheet.addRow(["Domicilio:", domicilioData[0]?.domicilio || "N/A"]);
         worksheet.addRow([]); // Fila en blanco para separación
 
-        // **Definir encabezados de la tabla**
-        worksheet.addRow(["Pedimento", "Clave de pedimento", "Fecha"]).font = { bold: true };
+        // Definir encabezados de la tabla
+        const headers = ["Pedimento", "Clave de pedimento", "Fecha", "Fracción", "Cantidad UMC", "Descripcion"];
+        worksheet.addRow(headers).font = { bold: true };
 
-        // **Agregar filas con los datos de la tabla**
+        // Agregar filas con los datos de la tabla
+        let currentPedimento = null;
+        
         rows.forEach((row) => {
-            worksheet.addRow([row.no_pedimento, row.clave_ped, row.fecha_en]);
+            // Si es un nuevo pedimento, mostramos todos sus datos
+            if (row.no_pedimento !== currentPedimento) {
+                worksheet.addRow([
+                    row.no_pedimento, 
+                    row.clave_ped, 
+                    row.fecha_en,
+                    row.fraccion || "N/A",
+                    row.cantidad_umc || "N/A",
+                    row.descri || "N/A"
+                ]);
+                currentPedimento = row.no_pedimento;
+            } else {
+                // Si es la misma pedimento pero con otra partida, solo mostramos los datos de la partida
+                worksheet.addRow([
+                    "", "", "",
+                    row.fraccion || "N/A",
+                    row.cantidad_umc || "N/A",
+                    row.descri || "N/A"
+                ]);
+            }
         });
 
         // Configurar la respuesta para descarga
