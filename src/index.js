@@ -24,7 +24,10 @@ const app = express();
 
 
 // Configuración de CORS
-app.use(cors());
+app.use(cors({
+    origin: 'https://smcontroller.onrender.com', // o '*' para pruebas
+    credentials: true
+  }));
 app.use(morgan('dev'));
 app.use(express.json());  //middleware para procesar JSON
 app.use(cuentaRoutes);  //Cuentas y login
