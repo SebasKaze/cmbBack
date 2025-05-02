@@ -34,10 +34,9 @@ app.use(MateProductos); //Materiales
 app.use(Datos); // Ver datos Generales y domicilios
 app.use(Procesos);// Pestaña de procesos
 app.use(Reportes);//Generar los reportes
-
+/*
 // Cargar y leer el archivo XLSX
 let tigieData = [];
-
 const cargarExcel = () => {
     const workbook = xlsx.readFile("./src/docs/TIGIE.xlsx"); // Cargar el archivo Excel
     const sheetName = workbook.SheetNames[0]; // Seleccionar la primera hoja
@@ -67,10 +66,8 @@ app.get("/api/cargamateriales/fracciones", (req, res) => {
 
     res.json(resultado);
 });
-/*
 ENVIO DE DOCUMENTOS
 */
-
 
 //Ruta para subir imagenes 
 app.post('/api/pedimentos/subirarc/subir',upload.array('documentos',10), (req,res) => {
@@ -83,7 +80,10 @@ function nombreDoc(file){
     return newPath;
 }
 
-app.listen(PORT);
-console.log('Puerto escuchando en', PORT);
+const PORT_ENV = process.env.PORT || PORT;
+app.listen(PORT_ENV, () => {
+    console.log(`Servidor escuchando en el puerto ${PORT_ENV}`);
+});
+
 
 
