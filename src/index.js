@@ -1,6 +1,7 @@
 import express from 'express';
 import {PORT}from './config.js';
 import xlsx from "xlsx";
+import { pool } from '../db.js';
 import cuentaRoutes from './routes/cuenta.routes.js';
 import pedimentos from './routes/pedimento.routes.js';
 import verPedimentos from './routes/verpedimento.routes.js';
