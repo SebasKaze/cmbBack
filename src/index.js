@@ -91,7 +91,15 @@ function nombreDoc(file){
     fs.renameSync(file.path, newPath);
     return newPath;
 }
-
+app.get('/test-db', async (req, res) => {
+    try {
+      const result = await pool.query('SELECT NOW()');
+      res.json({ success: true, time: result.rows[0] });
+    } catch (err) {
+      console.error('Fallo de conexión a la BD:', err.message);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 const PORT_ENV = process.env.PORT || PORT;
 app.listen(PORT_ENV, () => {
     console.log(`Servidor escuchando en el puerto ${PORT_ENV}`);
