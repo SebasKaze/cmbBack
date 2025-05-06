@@ -25,10 +25,12 @@ const app = express();
 
 // Configuración de CORS
 app.use(cors({
-    origin: 'https://smcontroller.onrender.com',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'] 
-  }));
+    origin: 'https://smcontroller.onrender.com', // O '*', solo para pruebas
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true // solo si usas cookies o headers de auth
+}));
+app.options('*', cors());
 app.get('/', (req, res) => {
     res.json({ status: 'running', message: 'Backend service is up' });
 });
