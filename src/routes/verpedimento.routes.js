@@ -6,7 +6,7 @@ import {
     verDomicilios,
     consultaPedimento,
 } from '../controllers/verpedimento.controllers.js'
-
+import { verifyToken } from '../controllers/cuenta.controllers.js';
 const router = Router();
 
 router.get("/api/verpedimento", verPedimento); // Mostrar cosas en pedimentos

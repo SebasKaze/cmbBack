@@ -351,7 +351,7 @@ export const envioPedimento = async (req, res) => {
 export const editarPedimento = async (req, res) => {
     const data = req.body;
     const { no_pedimento } = req.body;
-
+    console.log(no_pedimento);
     if (!no_pedimento) {
         return res.status(400).json({ error: "El número de pedimento es requerido" });
     }

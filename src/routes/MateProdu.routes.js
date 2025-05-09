@@ -11,6 +11,7 @@ import {
     eliminarMaterial,
 } from "../controllers/MateProdu.controllers.js";
 
+import { verifyToken } from '../controllers/cuenta.controllers.js';
 const router = Router();
 // MATERIALS
 router.post("/api/cargamateriales", cargaMaterial);

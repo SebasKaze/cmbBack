@@ -2,7 +2,7 @@ import { pool } from '../db.js';
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
-const SECRET_KEY = "secreto_super_seguro";
+const SECRET_KEY = "asdfgds";
 
 // Middleware para verificar el token JWT
 const verifyToken = (req, res, next) => {
@@ -15,6 +15,25 @@ const verifyToken = (req, res, next) => {
     try {
         const decoded = jwt.verify(token, SECRET_KEY);
         req.userId = decoded.id;
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Token no válido.' });
+    }
+};
+// Middleware para verificar el tipo de usuario
+export const allowOnlyTipo1 = (req, res, next) => {
+    const token = req.header('Authorization')?.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ message: 'Acceso denegado. No se proporcionó token.' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, SECRET_KEY);
+
+        if (decoded.tipo_de_cuenta !== 1) {
+            return res.status(403).json({ message: "No tienes permisos para realizar esta acción." });
+        }
         next();
     } catch (error) {
         return res.status(401).json({ message: 'Token no válido.' });
