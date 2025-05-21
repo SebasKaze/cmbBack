@@ -29,7 +29,7 @@ export const verPedimentos = async (req, res) => {
 
 export const envioPedimento = async (req, res) => {
     const data = req.body;
-    console.log("Datos recibidos en el backend:", JSON.stringify(data, null, 2));
+    //console.log("Datos recibidos en el backend:", JSON.stringify(data, null, 2));
 
     let client;
     try {
@@ -66,7 +66,7 @@ export const envioPedimento = async (req, res) => {
         }
 
         // **Si el pedimento se insertó correctamente, se procede con el resto de tablas**
-        console.log("Pedimento insertado correctamente con no_pedimento:", insertedNoPedimento);
+        //console.log("Pedimento insertado correctamente con no_pedimento:", insertedNoPedimento);
 
         const encaPQuery = `
                 INSERT INTO encabezado_p_pedimento (
@@ -235,8 +235,8 @@ export const envioPedimento = async (req, res) => {
                 ];
         
                 // Verificar datos antes de la inserción
-                console.log("Consulta INSERT partidas:", seccion7Query);
-                console.log("Valores INSERT partidas:", seccion7Values);
+                //console.log("Consulta INSERT partidas:", seccion7Query);
+                //console.log("Valores INSERT partidas:", seccion7Values);
         
                 // Insertar la partida en la base de datos
                 const seccion7Result = await client.query(seccion7Query, seccion7Values);
@@ -276,7 +276,7 @@ export const envioPedimento = async (req, res) => {
                 }
         
                 const id_partida = seccion7Result.rows[0].id_partida;
-                console.log("✅ ID de partida insertado:", id_partida);
+                //console.log("✅ ID de partida insertado:", id_partida);
         
                 // Si hay contribuciones asociadas a esta partida
                 if (seccion.contributions && seccion.contributions.length > 0) {
@@ -301,8 +301,8 @@ export const envioPedimento = async (req, res) => {
                         VALUES ${placeholders.join(", ")};
                     `;
         
-                    console.log("Consulta INSERT contribuciones:", contribucionesQuery);
-                    console.log("Valores INSERT contribuciones:", contribucionesValues);
+                    //console.log("Consulta INSERT contribuciones:", contribucionesQuery);
+                    //console.log("Valores INSERT contribuciones:", contribucionesValues);
         
                     await client.query(contribucionesQuery, contribucionesValues);
                 }

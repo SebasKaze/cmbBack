@@ -1,7 +1,6 @@
 import { pool } from '../db.js';
 
-
-export const activoFijo = async (req, res) => { //Ver Activo Fijo
+export const activoFijo = async (req, res) => {
     const { id_empresa, id_domicilio} = req.query;
     if (!id_empresa || !id_domicilio) {
         return res.status(400).json({ message: "Faltan parámetros requeridos." });
@@ -24,97 +23,9 @@ export const activoFijo = async (req, res) => { //Ver Activo Fijo
     }
 };
 
-export const pedimentoActivofijo = async (req, res) => { //Ver Activo Fijo
-    const { id_empresa, id_domicilio} = req.query;
-    console.log(id_domicilio,id_empresa);
-    if (!id_empresa || !id_domicilio) {
-        return res.status(400).json({ message: "Faltan parámetros requeridos." });
-    }
-    try {
-        const { rows } = await pool.query(`
-            SELECT 
-                no_pedimento::text AS no_pedimento
-            FROM 
-                pedimento
-            WHERE 
-                id_empresa = $1 
-                AND 
-                id_domicilio = $2
-                AND
-                clave_ped = 'AF'
-            `,[id_empresa,id_domicilio]);
-        res.json(rows);
-    } catch (error) {
-        console.error("Error al obtener datos:", error);
-        res.status(500).json({ error: "Error interno del servidor" });
-    }
-};
-
-export const crearActivoFijo = async (req, res) => {
-    const data = req.body;
-  
-    const { id_empresa, id_domicilio } = data;
-  
-    if (!id_empresa || !id_domicilio) {
-      return res.status(400).json({ message: "Faltan parámetros requeridos." });
-    }
-  
-    try {
-      // Insertar en tabla activo_fijo
-      const activoQuery = `
-        INSERT INTO activo_fijo (
-          id_activo_fijo_interno,
-          id_empresa,
-          fraccion_arancelaria,
-          nombre_activofijo,
-          ubicacion_interna,
-          descripcion,
-          id_domicilio
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id_activo_fijo
-      `;
-  
-      const activoValues = [
-        data.idInterno,
-        id_empresa,
-        data.fraccion,
-        data.nombre_activofijo,
-        data.ubicacion_interna,
-        data.descripcion,
-        id_domicilio
-      ];
-  
-      const result = await pool.query(activoQuery, activoValues);
-      const id_activo_fijo = result.rows[0].id_activo_fijo;
-  
-      // Insertar pedimentos si existen y no están vacíos
-      const pedimentos = data.pedimentosSeleccionados.filter(p => p && p.trim() !== "");
-  
-      for (const pedimento of pedimentos) {
-        await pool.query(
-          `
-          INSERT INTO pedimentos_activo_fijo (activo_fijo, pedimento)
-          VALUES ($1, $2)
-          `,
-          [id_activo_fijo, pedimento]
-        );
-      }
-  
-      res.status(201).json({ message: "Activo fijo creado correctamente", id_activo_fijo });
-  
-    } catch (error) {
-      console.error("Error al crear activo fijo:", error);
-      res.status(500).json({ error: "Error interno del servidor" });
-    }
-  };
-  
-
-export const verPedimento = async (req, res) => { // como odio JavaScript por cierto
+export const verPedimento = async (req, res) => {
     try {
         const { id_empresa, id_domicilio } = req.query;
-        console.log(id_domicilio);
-        console.log(id_empresa);
         const query = `
         SELECT 
             p.no_pedimento, 
@@ -130,7 +41,6 @@ export const verPedimento = async (req, res) => { // como odio JavaScript por ci
         `;
         const values = [id_empresa, id_domicilio];
         const { rows } = await pool.query(query, values);
-
         res.json(rows);
     } catch (error) {
         console.error("Error al obtener datos:", error);
@@ -142,7 +52,6 @@ export const verDomicilios = async (req, res) => {
     try {
         const { id_empresa } = req.query;
 
-        // Validar que se proporcione id_empresa
         if (!id_empresa) {
             return res.status(400).json({ error: "El parámetro id_empresa es obligatorio" });
         }
@@ -155,7 +64,6 @@ export const verDomicilios = async (req, res) => {
             WHERE id_empresa = $1;
         `;
         const values = [id_empresa];
-
         const { rows } = await pool.query(query, values);
         res.json(rows);
     } catch (error) {
@@ -166,12 +74,9 @@ export const verDomicilios = async (req, res) => {
 
 export const consultaPedimento = async (req, res) => {
     const { no_pedimento } = req.params;
-
     let client;
     try {
         client = await pool.connect();
-        console.log("No_pedimento recibido",no_pedimento);
-        // Obtener información del pedimento principal
         const pedimentoQuery = `SELECT * FROM pedimento WHERE no_pedimento = $1;`;
         const pedimentoResult = await client.query(pedimentoQuery, [no_pedimento]);
 
@@ -180,35 +85,27 @@ export const consultaPedimento = async (req, res) => {
         }
 
         const pedimento = pedimentoResult.rows[0];
-
         // Obtener datos de encabezado_p_pedimento
         const encabezadoQuery = `SELECT * FROM encabezado_p_pedimento WHERE no_pedimento = $1;`;
         const encabezadoResult = await client.query(encabezadoQuery, [no_pedimento]);
-
         // Obtener datos de encabezado_sec_pedimento
         const encabezadoSecQuery = `SELECT * FROM encabezado_sec_pedimento WHERE no_pedimento = $1;`;
         const encabezadoSecResult = await client.query(encabezadoSecQuery, [no_pedimento]);
-
         // Obtener datos de datos_proveedor_comprador
         const proveedorQuery = `SELECT * FROM datos_proveedor_comprador WHERE no_pedimento = $1;`;
         const proveedorResult = await client.query(proveedorQuery, [no_pedimento]);
-
         // Obtener datos de datos_d (Destinatarios)
         const destinatariosQuery = `SELECT * FROM datos_d WHERE no_pedimento = $1;`;
         const destinatariosResult = await client.query(destinatariosQuery, [no_pedimento]);
-
         // Obtener datos de datos_transport
         const transportQuery = `SELECT * FROM datos_transport WHERE no_pedimento = $1;`;
         const transportResult = await client.query(transportQuery, [no_pedimento]);
-
         // Obtener datos de candados
         const candadosQuery = `SELECT * FROM candados WHERE no_pedimento = $1;`;
         const candadosResult = await client.query(candadosQuery, [no_pedimento]);
-
         // Obtener partidas
         const partidasQuery = `SELECT * FROM partidas WHERE no_pedimento = $1;`;
         const partidasResult = await client.query(partidasQuery, [no_pedimento]);
-
         // Obtener contribuciones de cada partida
         const partidasContribuciones = [];
         for (const partida of partidasResult.rows) {
@@ -216,19 +113,15 @@ export const consultaPedimento = async (req, res) => {
             const contribucionResult = await client.query(contribucionQuery, [partida.id_partida]);
             partidasContribuciones.push({ ...partida, contribuciones: contribucionResult.rows });
         }
-
         // Obtener tasas a nivel de pedimento
         const contribucionesQuery = `SELECT * FROM tasa_pedi WHERE no_pedimento = $1;`;
         const contribucionesResult = await client.query(contribucionesQuery, [no_pedimento]);
-
         // Obtener cuadros de liquidación
         const cuadroLiquidacionQuery = `SELECT * FROM cua_liqui WHERE no_pedimento = $1;`;
         const cuadroLiquidacionResult = await client.query(cuadroLiquidacionQuery, [no_pedimento]);
-
         // Obtener totales
         const totalesQuery = `SELECT * FROM totales WHERE no_pedimento = $1;`;
         const totalesResult = await client.query(totalesQuery, [no_pedimento]);
-
         // Construcción de respuesta
         const resultado = {
             pedimento,
@@ -243,11 +136,7 @@ export const consultaPedimento = async (req, res) => {
             cuadroLiquidacion: cuadroLiquidacionResult.rows,
             totales: totalesResult.rows[0] || null
         };
-
-        console.log("Consulta de pedimento:", JSON.stringify(resultado, null, 2));
-
         res.json(resultado);
-
     } catch (error) {
         console.error("Error al consultar el pedimento:", error);
         res.status(500).json({ error: "Error interno del servidor" });

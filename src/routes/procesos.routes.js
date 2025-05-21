@@ -3,29 +3,23 @@ import { Router } from "express";
 import {
     entradaMercancia,
     salidaMercancias,
-    entradaMercanciasFracciones,
     salidaMercanciasFracciones,
     mateCargaProducto,
     mateCargaMeteriales,
     mateCargaGuardar,
     mateUtilizados,
-    saldoMuestra,
-    mateUtilizadosVer,
-    
-
+    saldoMuestra
 } from '../controllers/procesos.controllers.js'
 
-
+import { verifyToken } from '../controllers/cuenta.controllers.js';
 
 const router = Router();
 
 router.get("/api/procesos/emercancias", entradaMercancia); //Mostrar entrada de mercancias
 
-router.get("/api/procesos/smercancias", salidaMercancias); //Mostrar salida de mercancias
+router.get("/api/procesos/smercancias", salidaMercancias); //Mostrar entrada de mercancias
 
-router.get("/api/procesos/emercancias/fracciones", entradaMercanciasFracciones); //Mostrar entrada de mercancias
-
-router.get("/api/procesos/smercancias/fracciones", salidaMercanciasFracciones); //Mostrar salida de mercancias
+router.get("/api/procesos/smercancias/fracciones", salidaMercanciasFracciones); //Mostrar entrada de mercancias
 
 router.get("/api/procesos/mateutili/cargaproducto", mateCargaProducto); //Cargar productos de materiales utilizados
 
@@ -37,6 +31,4 @@ router.get("/api/procesos/mateutili", mateUtilizados); //Hacer la consulta de Ma
 
 router.get("/api/procesos/saldoMuestra", saldoMuestra); //Mostrar el saldo actual
 
-router.get("/api/procesos/mateutili/vermateuti", mateUtilizadosVer);//Ver los materiales que se utilizan por producto
 export default router;
-
