@@ -49,11 +49,8 @@ export const DatosGeneralesEmpresa = async (req, res) => {
 //Registro de empresa
 export const RegistroEmpresa = async (req, res) => {
     
-    const fechaAhora = new Date().toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
+    const fechaAhora = new Date().toISOString().split('T')[0]; // Resultado: "2025-05-21"
+
     const data = req.body;
     console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
     try {
