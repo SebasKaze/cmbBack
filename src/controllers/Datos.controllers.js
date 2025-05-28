@@ -1,9 +1,9 @@
 import { pool } from '../db.js';
+import { verifyToken } from './cuenta.controllers.js';
 
 
-//Solicitud de datos generales
 export const DatosGeneralesUsuario = async (req, res) => {
-    console.log("Datos recibidos en el backend:", req.body); // 👈 Añade esta línea
+    //console.log("Datos recibidos en el backend:", req.body); // 👈 Añade esta línea
     const { id_usuario } = req.body;
 
     try {
@@ -52,7 +52,7 @@ export const RegistroEmpresa = async (req, res) => {
     const fechaAhora = new Date().toISOString().split('T')[0]; // Resultado: "2025-05-21"
 
     const data = req.body;
-    console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
+    //console.log("Datos recibidos Envio materiales:", JSON.stringify(data, null, 2));
     try {
         const envioEmpresa = req.body;
 
@@ -178,7 +178,7 @@ export const InfoDomi = async (req,res) =>{
 export const RegistroUsuario = async (req, res) => {
     try {
         const envioUsuario = req.body;
-
+        //console.log("Datos recibidos Envio materiales:", JSON.stringify(envioUsuario, null, 2));
         // Verificar si ya existe un usuario con el mismo correo
         const correoExisteQuery = `SELECT 1 FROM cuenta_usuario WHERE corrreo = $1`;
         const { rows } = await pool.query(correoExisteQuery, [envioUsuario.correo]);
@@ -210,7 +210,6 @@ export const RegistroUsuario = async (req, res) => {
         res.status(500).json({ error: "Error interno del servidor" });
     }
 };
-
 
 //Ver Domicilios
 export const verDomi = async (req, res) => { 

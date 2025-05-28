@@ -19,7 +19,7 @@ const router = Router();
 // Rutas protegidas con verificación de token
 router.post("/api/registros", verifyToken, allowOnlyTipo1, RegistroEmpresa);
 router.post("/api/registrosdomi", verifyToken, allowOnlyTipo1, RegistroDomi);
-router.post("/api/registrousuario", verifyToken, allowOnlyTipo1, RegistroUsuario);
+router.post("/api/registrousuario", RegistroUsuario);
 
 // Rutas públicas o de consulta
 router.post("/api/datosGenerales/usuario", DatosGeneralesUsuario); // Ver datos generales
