@@ -1,6 +1,7 @@
 import { pool } from '../db.js';
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import { notifyLogout } from '../socketManager.js';
 
 const SECRET_KEY = "asdfgds";
 
@@ -40,7 +41,6 @@ export const allowOnlyTipo1 = (req, res, next) => {
     }
 };
 
-// POST Login y generación de token
 export const loginCuenta = async (req, res) => {
     const { email, password } = req.body;
 
@@ -60,34 +60,30 @@ export const loginCuenta = async (req, res) => {
             [email]
         );
 
-        // Si no se encuentra el usuario
-        if (rows.length === 0) {
-            console.log(`Usuario con correo ${email} no encontrado.`);
-            return res.status(401).json({ message: "Credenciales inválidas" });
-        }
+        if (rows.length === 0) return res.status(401).json({ message: "Credenciales inválidas" });
+
         const user = rows[0];
-        if (user.contraseña !== password) {
-            console.log("Contraseña incorrecta para el usuario:", email);
-            return res.status(401).json({ message: "Credenciales inválidas" });
-        }
+        if (user.contraseña !== password) return res.status(401).json({ message: "Credenciales inválidas" });
+
         delete user.contraseña;
-        const token = jwt.sign(
-            {
-                id_usuario: user.id_usuario,
-                nombre_usuario: user.nombre_usuario,
-                id_empresa: user.id_empresa,
-                nombre_empresa: user.nombre_empresa,
-                tipo_de_cuenta: user.tipo_de_cuenta,
-                id_domicilio: user.id_domicilio,
-            },
-            SECRET_KEY,
-            { expiresIn: "2h" }
-        );
-        // Enviar el token
+
+        const token = jwt.sign({
+            id_usuario: user.id_usuario,
+            nombre_usuario: user.nombre_usuario,
+            id_empresa: user.id_empresa,
+            nombre_empresa: user.nombre_empresa,
+            tipo_de_cuenta: user.tipo_de_cuenta,
+            id_domicilio: user.id_domicilio,
+        }, SECRET_KEY, { expiresIn: "2h" });
+
+        // ⚠️ Notificar a través de WebSocket y cerrar sesión anterior
+        notifyLogout(user.id_usuario);
+
         res.status(200).json({ token });
     } catch (error) {
         console.error("Error en la autenticación:", error);
         res.status(500).json({ message: "Error interno del servidor" });
     }
 };
+
 export { verifyToken };
