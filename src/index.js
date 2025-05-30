@@ -9,6 +9,8 @@ import MateProductos from './routes/MateProdu.routes.js';
 import Datos from './routes/Datos.routes.js';
 import Procesos from './routes/procesos.routes.js';
 import Reportes from './routes/reportes.routes.js';
+import http from 'http'; // 🧩
+import { initWebSocket } from './socketManager.js';
 
 
 import morgan from 'morgan';
@@ -21,7 +23,9 @@ import fs from 'node:fs';
 export const upload = multer({dest: 'uploads/'});
 const app = express();
 
+const server = http.createServer(app);
 
+initWebSocket(server); 
 
 
 // Configuración de CORS
