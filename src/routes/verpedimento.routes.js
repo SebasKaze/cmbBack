@@ -1,12 +1,11 @@
 import { Router } from "express";
-
+import { verifyToken } from '../controllers/cuenta.controllers.js';
 import {
     verPedimento,
     activoFijo,
     verDomicilios,
     consultaPedimento,
 } from '../controllers/verpedimento.controllers.js'
-import { verifyToken } from '../controllers/cuenta.controllers.js';
 const router = Router();
 
 router.get("/api/verpedimento", verPedimento); // Mostrar cosas en pedimentos

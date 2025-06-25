@@ -54,18 +54,28 @@ export const loginCuenta = async (req, res) => {
                 u.contraseña,
                 u.tipo_de_cuenta,
                 u.id_domicilio
-                FROM cuenta_usuario u
-                JOIN info_empresa e ON u.id_empresa = e.id_empresa
-            WHERE u.corrreo = $1`,
+             FROM cuenta_usuario u
+             JOIN info_empresa e ON u.id_empresa = e.id_empresa
+             WHERE u.corrreo = $1`,
             [email]
         );
 
-        if (rows.length === 0) return res.status(401).json({ message: "Credenciales inválidas" });
+        if (rows.length === 0) {
+            return res.status(401).json({ message: "Credenciales inválidas" });
+        }
 
         const user = rows[0];
-        if (user.contraseña !== password) return res.status(401).json({ message: "Credenciales inválidas" });
+
+
+        const esValida = password === user.contraseña; // o usa await bcrypt.compare(password, user.contraseña)
+        if (!esValida) {
+            return res.status(401).json({ message: "Credenciales inválidas" });
+        }
 
         delete user.contraseña;
+
+
+        notifyLogout(user.id_usuario);
 
         const token = jwt.sign({
             id_usuario: user.id_usuario,
@@ -75,9 +85,6 @@ export const loginCuenta = async (req, res) => {
             tipo_de_cuenta: user.tipo_de_cuenta,
             id_domicilio: user.id_domicilio,
         }, SECRET_KEY, { expiresIn: "2h" });
-
-        // ⚠️ Notificar a través de WebSocket y cerrar sesión anterior
-        notifyLogout(user.id_usuario);
 
         res.status(200).json({ token });
     } catch (error) {
