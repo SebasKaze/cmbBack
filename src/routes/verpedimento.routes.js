@@ -5,6 +5,7 @@ import {
     activoFijo,
     verDomicilios,
     consultaPedimento,
+    pedimentoAf,
 } from '../controllers/verpedimento.controllers.js'
 const router = Router();
 
@@ -16,4 +17,5 @@ router.get("/api/verDomicilios", verDomicilios ); //Mostrar domicilios
 
 router.get("/api/consultaPedimento/:no_pedimento", consultaPedimento); // Consultar pedimento por no_pedimento
 
+router.get("/api/pedimentoAf/activofijo", pedimentoAf);
 export default router;

@@ -4,7 +4,6 @@ import multer from "multer";
 const storage = multer.memoryStorage(); // Almacena en memoria (puedes cambiarlo a disco)
 const upload = multer({ storage });
 
-
 export const verPedimentos = async (req, res) => {
     const { id_empresa, id_domicilio } = req.query;
 

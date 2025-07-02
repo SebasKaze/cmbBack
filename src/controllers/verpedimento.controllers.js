@@ -1,3 +1,4 @@
+import { compareSync } from 'bcrypt';
 import { pool } from '../db.js';
 
 export const activoFijo = async (req, res) => {
@@ -144,3 +145,28 @@ export const consultaPedimento = async (req, res) => {
         if (client) client.release();
     }
 };
+
+export const pedimentoAf = async (req,res) => {
+    const { id_empresa, id_domicilio} = req.query;
+        if (!id_empresa || !id_domicilio) {
+        return res.status(400).json({ message: "Faltan parámetros requeridos." });
+    }
+    try {
+        const { rows } = await pool.query(`
+            SELECT 
+                no_pedimento
+            FROM 
+                pedimento
+            WHERE 
+                id_empresa = $1 
+                AND 
+                id_domicilio = $2
+                AND
+                clave_ped = 'AF'
+            `,[id_empresa,id_domicilio]);
+        res.json(rows);
+    } catch (error) {
+        console.error("Error al obtener datos:", error);
+        res.status(500).json({ error: "Error interno del servidor" });
+    }
+}
